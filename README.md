@@ -14,7 +14,7 @@ CloudComputing--MovieLens-Big-Data-Analytics-on-the-Cloud
 │── reports/
 │   ├── TsungTse_Tu_s4780187_proposal.docx  # Project proposal
 │── data/                       # Placeholder for datasets (need download)
-│   ├── README.txt               # Dataset license and source information
+│   ├── MovieLens_Dataset_Info.txt             # Dataset license and source information
 ```
 
 ## Setup and Installation
