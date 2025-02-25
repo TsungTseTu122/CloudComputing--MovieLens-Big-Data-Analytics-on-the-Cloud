@@ -18,27 +18,39 @@ CloudComputing--MovieLens-Big-Data-Analytics-on-the-Cloud
 ```
 
 ## Setup and Installation
+
 1. Clone repository
+
 `
 git clone https://github.com/TsungTseTu122/CloudComputing--MovieLens-Big-Data-Analytics-on-the-Cloud.git
+`
+
+`
 cd CloudComputing--MovieLens-Big-Data-Analytics-on-the-Cloud
 `
 
 2. Set Up Docker Environment
+   
 Ensure Docker is installed and running. Then, start the containerized services:
+
 `
 docker-compose up -d
 `
+
 This command activates Hadoop HDFS and Apache Spark services for data processing
 
 3. Access Jupyter Notebook
+   
 If you are using Jupyter Notebook within Docker, you can access it at:
+
 `
 http://localhost:8888/
 `
+
 Otherwise, you can run the `.ipynb` file in any local or cloud-based Jupyter environment.
 
 ## Dataset
+
 The dataset is not included in this repository due to its size. You can download it from:
 
 MovieLens 32M Dataset: https://grouplens.org/datasets/movielens/
