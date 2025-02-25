@@ -1,0 +1,7 @@
+# Requires Python 3.11 or higher
+pyspark
+pandas
+numpy
+matplotlib
+seaborn
+wordcloud
