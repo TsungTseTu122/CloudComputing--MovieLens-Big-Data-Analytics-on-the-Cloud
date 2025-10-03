@@ -29,7 +29,7 @@ services:
     ports:
       - "8888:8888"
     volumes:
-      - ./notebooks:/home/jovyan/work
+      - ./:/home/jovyan/work
     command: >
       start.sh jupyter notebook --NotebookApp.token=''
       --NotebookApp.password=''
