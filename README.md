@@ -49,6 +49,27 @@ http://localhost:8888/
 
 Otherwise, you can run the `.ipynb` file in any local or cloud-based Jupyter environment.
 
+4. Confirm your local clone is connected to GitHub
+
+If you are working across multiple Windows profiles and want to verify where your
+changes live, list the configured remotes:
+
+```
+git remote -v
+```
+
+If no remotes are returned, the work is only stored locally. Link the clone to
+your GitHub fork (replace the URL with your repository if different) and push
+the branch that contains your latest commits:
+
+```
+git remote add origin https://github.com/TsungTseTu122/CloudComputing--MovieLens-Big-Data-Analytics-on-the-Cloud.git
+git push -u origin work
+```
+
+After pushing, confirm the branch or pull request on GitHub to ensure the
+changes are available remotely.
+
 ## Dataset
 
 ### 1. Download MovieLens automatically
