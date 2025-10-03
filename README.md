@@ -49,23 +49,73 @@ http://localhost:8888/
 
 Otherwise, you can run the `.ipynb` file in any local or cloud-based Jupyter environment.
 
+4. Confirm your local clone is connected to GitHub
+
+If you are working across multiple Windows profiles and want to verify where your
+changes live, list the configured remotes:
+
+```
+git remote -v
+```
+
+If no remotes are returned, the work is only stored locally. Link the clone to
+your GitHub fork (replace the URL with your repository if different) and push
+the branch that contains your latest commits:
+
+```
+git remote add origin https://github.com/TsungTseTu122/CloudComputing--MovieLens-Big-Data-Analytics-on-the-Cloud.git
+git push -u origin work
+```
+
+After pushing, confirm the branch or pull request on GitHub to ensure the
+changes are available remotely.
+
 ## Dataset
 
-The dataset is not included in this repository due to its size. You can download it from:
+### 1. Download MovieLens automatically
 
-MovieLens 32M Dataset: https://grouplens.org/datasets/movielens/
+Run the helper script to download and extract the dataset variant you need (25M by default):
 
-After downloading, place the data files inside the data/ directory.
+```
+python scripts/download_movielens.py --variant 25m
+```
+
+The command stores the CSV files under `data/movielens/<variant>/` and records a checksum so repeat runs skip the download unless you add `--force`.
+
+### 2. Load data into HDFS
+
+After the CSVs are available locally, push them into HDFS so Spark can read them inside the cluster:
+
+```
+bash scripts/load_to_hdfs.sh
+```
+
+The script uploads every CSV in `data/movielens/25m` to `hdfs://namenode:8020/user/hadoop/movielens/`. Override the source directory or container name with the `DATA_DIR`, `HDFS_TARGET`, and `HDFS_CONTAINER` environment variables if your setup differs (for example on Windows with WSL you can run `wsl bash scripts/load_to_hdfs.sh`).
 
 ## Key Features
 
-- Scalable Data Processing: Uses Spark on a cloud-based infrastructure for efficient handling of large-scale datasets.
+- **Automated dataset ingestion** – Scripts to download MovieLens variants and push them into HDFS with a single command.
+- **Collaborative filtering recommender** – A PySpark ALS pipeline that trains on the ratings data, reports RMSE/MAE, and serves top-N user or item recommendations via CLI or notebooks.
+- **Exploratory notebooks** – Existing notebooks for clustering, classification, and association analysis, now complemented by a recommender walkthrough.
+- **Containerized deployment** – Docker Compose stack for Hadoop and Spark to reproduce the environment quickly.
 
-- Movie Recommendation Models: Implements clustering and classification techniques to analyze user preferences.
+## Training the recommender
 
-- Association Rule Mining: Identifies patterns in user interactions to improve recommendation quality.
+Once the data is in HDFS, you can train and query the recommender directly from the command line:
 
-- Containerized Deployment: Dockerized services for easy setup and replication.
+```
+python -m src.recommendation --top-n 10 --user-id 123 --master-local
+```
+
+Key options:
+
+- `--ratings-path` / `--movies-path` to override the default HDFS locations.
+- `--user-id` to print personalized movie recommendations.
+- `--movie-id` to find similar titles.
+- `--output` to persist recommendations as Parquet.
+- `--master-local` to run a quick local test outside the cluster.
+
+You can also import `src.recommendation` inside a notebook to visualize the results.
 
 ## Future Improvements
 
