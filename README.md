@@ -3,18 +3,39 @@
 ## Overview
 This project analyzes the MovieLens dataset using PySpark, Hadoop HDFS, and Docker to perform clustering, classification, and association rule mining on user-movie interactions. The system runs in a containerized cloud environment with Spark clusters, enabling scalable big data processing.
 
-## Project Repository
+## Project Structure
 CloudComputing--MovieLens-Big-Data-Analytics-on-the-Cloud
 ```
-│── README.md                  # Project Overview & Usage Guide
-│── requirements.txt            # Python dependencies 
-│── docker-compose.yml          # Docker setup for Spark & Hadoop
-│── notebooks/
-│   ├── Project.ipynb           # Jupyter Notebook with data analysis
-│── reports/
-│   ├── TsungTse_Tu_s4780187_proposal.docx  # Project proposal
-│── data/                       # Placeholder for datasets (need download)
-│   ├── MovieLens_Dataset_Info.txt             # Dataset license and source information
+│── README.md                         # Project overview & setup guide
+│── requirements.txt                  # Python dependencies (PySpark, tooling)
+│── docker-compose.yml                # Docker setup for Hadoop, Spark, and Jupyter
+│
+├── data/                             # MovieLens artifacts downloaded by the helper script
+│   ├── MovieLens_Dataset_Info.txt    # Dataset license and source information
+│   └── movielens/
+│       └── 25m/                      # Example extracted dataset variant
+│           ├── ratings.csv
+│           ├── movies.csv
+│           ├── tags.csv
+│           └── links.csv
+│
+├── notebooks/
+│   ├── Project.ipynb                 # Original exploratory analysis
+│   └── Recommender.ipynb             # ALS walkthrough & evaluation examples
+│
+├── reports/
+│   └── TsungTse_Tu_s4780187_proposal.docx
+│
+├── scripts/
+│   ├── download_movielens.py         # Automated dataset downloader & checksum validation
+│   └── load_to_hdfs.sh               # Helper to upload CSVs to HDFS (use WSL/Git Bash on Windows)
+│
+├── src/
+│   ├── __init__.py
+│   └── recommendation.py             # PySpark ALS training & inference utilities
+│
+└── tests/
+    └── test_recommendation.py        # Smoke tests for the recommender pipeline
 ```
 
 ## Setup and Installation
