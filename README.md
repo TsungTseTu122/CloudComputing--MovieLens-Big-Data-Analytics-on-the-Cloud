@@ -91,20 +91,6 @@ git push -u origin work
 After pushing, confirm the branch or pull request on GitHub to ensure the
 changes are available remotely.
 
-### Publishing follow-up commits
-
-Whenever you make additional updates (such as refining the README or
-adjusting `docker-compose.yml`), commit them locally and push again:
-
-```
-git add .
-git commit -m "Describe your change"
-git push
-```
-
-You can repeat these commands as often as needed; each push updates the
-branch on GitHub with your latest work.
-
 ## Dataset
 
 ### 1. Download MovieLens automatically
