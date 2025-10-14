@@ -41,7 +41,7 @@ services:
       - namenode
       - datanode
   spark-master:
-    image: bitnami/spark:3.5.0
+    image: bitnami/spark:3.5.6
     container_name: spark-master
     ports:
       - "8080:8080"
@@ -50,7 +50,7 @@ services:
       - SPARK_MASTER_WEBUI_PORT=8080
 
   spark-worker:
-    image: bitnami/spark:3.5.0
+    image: bitnami/spark:3.5.6
     container_name: spark-worker
     depends_on:
       - spark-master
