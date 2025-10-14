@@ -19,7 +19,7 @@ services:
       - "9864:9864"  # DataNode web UI
 
   jupyter:
-    image: jupyter/pyspark-notebook:spark-3.5.1
+    image: jupyter/pyspark-notebook
     container_name: jupyter
     ports:
       - "8888:8888"
