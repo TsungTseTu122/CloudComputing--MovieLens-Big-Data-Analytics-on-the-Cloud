@@ -10,7 +10,11 @@
   </property>
   <property>
     <name>dfs.namenode.rpc-address</name>
-    <value>0.0.0.0:8020</value>
+    <value>namenode:8020</value>
+  </property>
+  <property>
+    <name>dfs.namenode.rpc-bind-host</name>
+    <value>0.0.0.0</value>
   </property>
   <property>
     <name>dfs.namenode.name.dir</name>
@@ -21,4 +25,3 @@
     <value>file:///data/dn</value>
   </property>
 </configuration>
-
