@@ -2,16 +2,18 @@ services:
   namenode:
     image: apache/hadoop:3.3.6
     container_name: namenode
+    user: "0:0"
     environment:
       - HADOOP_SERVICE=namenode
       - HDFS_NAMENODE_USER=root
+      - HADOOP_LOG_DIR=/opt/hadoop/logs
     ports:
       - "9870:9870"  # NameNode web UI
       - "8020:8020"  # NameNode RPC (fs.defaultFS)
     volumes:
       - ./conf/hadoop:/opt/hadoop/etc/hadoop:ro
       - hdfs_namenode:/data/nn
-    command: ["bash", "-lc", "mkdir -p $$HADOOP_HOME/logs /data/nn; hdfs namenode -format -force -nonInteractive || true; hdfs --daemon start namenode; tail -F $$HADOOP_HOME/logs/*namenode*.log"]
+    # Let the image entrypoint manage the daemon lifecycle
     healthcheck:
       test: ["CMD-SHELL", "ps -ef | grep -q '[n]amenode'"]
       interval: 10s
@@ -21,9 +23,11 @@ services:
   datanode:
     image: apache/hadoop:3.3.6
     container_name: datanode
+    user: "0:0"
     environment:
       - HADOOP_SERVICE=datanode
       - HDFS_DATANODE_USER=root
+      - HADOOP_LOG_DIR=/opt/hadoop/logs
     depends_on:
       namenode:
         condition: service_healthy
@@ -32,7 +36,7 @@ services:
     volumes:
       - ./conf/hadoop:/opt/hadoop/etc/hadoop:ro
       - hdfs_datanode:/data/dn
-    command: ["bash", "-lc", "mkdir -p $$HADOOP_HOME/logs /data/dn; hdfs --daemon start datanode; tail -F $$HADOOP_HOME/logs/*datanode*.log"]
+    # Let the image entrypoint manage the daemon lifecycle
     healthcheck:
       test: ["CMD-SHELL", "ps -ef | grep -q '[d]atanode'"]
       interval: 10s
