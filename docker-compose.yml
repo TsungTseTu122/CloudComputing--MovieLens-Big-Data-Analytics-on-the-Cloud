@@ -62,7 +62,7 @@ services:
       - namenode
       - datanode
   spark-master:
-    image: apache/spark:3.5.6
+    image: apache/spark:3.5.1
     container_name: spark-master
     ports:
       - "8080:8080"
@@ -70,7 +70,7 @@ services:
     command: /opt/spark/bin/spark-class org.apache.spark.deploy.master.Master --host spark-master --port 7077 --webui-port 8080
 
   spark-worker:
-    image: apache/spark:3.5.6
+    image: apache/spark:3.5.1
     container_name: spark-worker
     depends_on:
       - spark-master

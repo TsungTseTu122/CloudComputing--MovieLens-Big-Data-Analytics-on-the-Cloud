@@ -1,5 +1,5 @@
 # Requires Python 3.11 or higher
-pyspark
+pyspark==3.5.1
 pandas
 numpy
 matplotlib
