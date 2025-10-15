@@ -4,12 +4,13 @@ services:
     container_name: namenode
     environment:
       - HADOOP_SERVICE=namenode
+      - HDFS_NAMENODE_USER=root
     ports:
       - "9870:9870"  # NameNode web UI
       - "8020:8020"  # NameNode RPC (fs.defaultFS)
-    command: ["bash", "-lc", "hdfs namenode -format -force -nonInteractive || true; hdfs --daemon start namenode; tail -F $HADOOP_HOME/logs/*namenode*.log"]
+    command: ["bash", "-lc", "mkdir -p $HADOOP_HOME/logs; hdfs namenode -format -force -nonInteractive || true; hdfs --daemon start namenode; tail -F $HADOOP_HOME/logs/*namenode*.log"]
     healthcheck:
-      test: ["CMD-SHELL", "jps | grep -q NameNode"]
+      test: ["CMD-SHELL", "ps -ef | grep -q '[n]amenode'"]
       interval: 10s
       timeout: 5s
       retries: 12
@@ -19,14 +20,15 @@ services:
     container_name: datanode
     environment:
       - HADOOP_SERVICE=datanode
+      - HDFS_DATANODE_USER=root
     depends_on:
       namenode:
         condition: service_healthy
     ports:
       - "9864:9864"  # DataNode web UI
-    command: ["bash", "-lc", "hdfs --daemon start datanode; tail -F $HADOOP_HOME/logs/*datanode*.log"]
+    command: ["bash", "-lc", "mkdir -p $HADOOP_HOME/logs; hdfs --daemon start datanode; tail -F $HADOOP_HOME/logs/*datanode*.log"]
     healthcheck:
-      test: ["CMD-SHELL", "jps | grep -q DataNode"]
+      test: ["CMD-SHELL", "ps -ef | grep -q '[d]atanode'"]
       interval: 10s
       timeout: 5s
       retries: 12
