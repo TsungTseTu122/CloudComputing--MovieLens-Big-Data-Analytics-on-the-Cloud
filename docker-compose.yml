@@ -13,7 +13,8 @@ services:
     volumes:
       - ./conf/hadoop:/opt/hadoop/etc/hadoop:ro
       - hdfs_namenode:/data/nn
-    # Let the image entrypoint manage the daemon lifecycle
+    # Run NN in foreground; format only on first boot
+    command: ["bash", "-lc", "if [ ! -d /data/nn/current ]; then hdfs namenode -format -force -nonInteractive; fi; exec hdfs namenode"]
     healthcheck:
       test: ["CMD-SHELL", "ps -ef | grep -q '[n]amenode'"]
       interval: 10s
@@ -36,7 +37,8 @@ services:
     volumes:
       - ./conf/hadoop:/opt/hadoop/etc/hadoop:ro
       - hdfs_datanode:/data/dn
-    # Let the image entrypoint manage the daemon lifecycle
+    # Run DN in foreground
+    command: ["bash", "-lc", "exec hdfs datanode"]
     healthcheck:
       test: ["CMD-SHELL", "ps -ef | grep -q '[d]atanode'"]
       interval: 10s
