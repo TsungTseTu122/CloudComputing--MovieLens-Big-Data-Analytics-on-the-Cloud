@@ -24,4 +24,26 @@
     <name>dfs.datanode.data.dir</name>
     <value>file:///data/dn</value>
   </property>
+  <!-- Allow DN to register even if reverse DNS is missing -->
+  <property>
+    <name>dfs.namenode.datanode.registration.ip-hostname-check</name>
+    <value>false</value>
+  </property>
+  <!-- Pin DN hostname and listener addresses inside container -->
+  <property>
+    <name>dfs.datanode.hostname</name>
+    <value>datanode</value>
+  </property>
+  <property>
+    <name>dfs.datanode.address</name>
+    <value>0.0.0.0:9866</value>
+  </property>
+  <property>
+    <name>dfs.datanode.ipc.address</name>
+    <value>0.0.0.0:9867</value>
+  </property>
+  <property>
+    <name>dfs.datanode.http.address</name>
+    <value>0.0.0.0:9864</value>
+  </property>
 </configuration>

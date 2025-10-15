@@ -4,5 +4,9 @@
     <name>fs.defaultFS</name>
     <value>hdfs://namenode:8020</value>
   </property>
+  <!-- Prefer IPs to avoid reverse DNS lookups in container networks -->
+  <property>
+    <name>hadoop.security.dns.useIP</name>
+    <value>true</value>
+  </property>
 </configuration>
-
