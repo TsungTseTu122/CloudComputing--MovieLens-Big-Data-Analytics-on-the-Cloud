@@ -58,7 +58,7 @@ services:
       --NotebookApp.disable_check_xsrf=True
     environment:
       - JUPYTER_ENABLE_LAB=yes
-      - SPARK_HOME=
+      - SPARK_HOME=/usr/local/spark
       - PYTHONPATH=/home/jovyan/work
     depends_on:
       - namenode
