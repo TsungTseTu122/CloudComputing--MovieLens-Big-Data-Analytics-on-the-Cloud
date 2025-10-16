@@ -1,14 +1,20 @@
 # Python
 __pycache__/
-*.pyc
-*.pyo
-
-# Virtual env
+.pytest_cache/
 .venv/
-env/
-venv/
 
-# IDE & system files
-.vscode/
-.idea/
+# Jupyter
+.ipynb_checkpoints/
+
+# OS/editor
 .DS_Store
+Thumbs.db
+
+# Data artifacts
+data/movielens/
+data/ml-*.zip*
+
+# Local reports/outputs
+reports/*.docx
+*.parquet
+
