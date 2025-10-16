@@ -141,25 +141,25 @@ def _prepare_item_subset(training_result: TrainingResult, movie_id: str) -> Data
     return subset.withColumn("movieIndexInt", F.col("movieIndex").cast("int"))
 
 
+def _labels_dataframe(spark: SparkSession, item_labels: Dict[int, str]) -> DataFrame:
+    data = [(int(idx), mid) for idx, mid in item_labels.items()]
+    return spark.createDataFrame(data, ["movieIndexInt", "movieId"])  # type: ignore[arg-type]
+
+
 def _explode_recommendations(
     recommendations: DataFrame,
     item_labels: Dict[int, str],
     id_column: str,
 ) -> DataFrame:
     spark = recommendations.sparkSession
-    broadcast_labels = spark.sparkContext.broadcast(item_labels)
     element_type = recommendations.schema["recommendations"].dataType.elementType
     field_names = [name for name in element_type.fieldNames() if name != "rating"]
     if not field_names:
         raise ValueError("Recommendation struct missing index field")
     index_field = field_names[0]
 
-    def lookup(idx: int) -> Optional[str]:  # type: ignore[return-type]
-        if idx is None:
-            return None
-        return broadcast_labels.value.get(int(idx))
+    labels_df = _labels_dataframe(spark, item_labels)
 
-    lookup_udf = F.udf(lookup, StringType())
     exploded = (
         recommendations.select(id_column, F.explode("recommendations").alias("rec"))
         .select(
@@ -167,8 +167,7 @@ def _explode_recommendations(
             F.col("rec.rating").alias("score"),
             F.col(f"rec.{index_field}").cast("int").alias("movieIndexInt"),
         )
-        .withColumn("movieId", lookup_udf("movieIndexInt"))
-        .dropna(subset=["movieId"])
+        .join(labels_df, on="movieIndexInt", how="inner")
     )
     return exploded
 
@@ -216,28 +215,32 @@ def similar_items(
 
     target_vector = target_row[0][0]
     norm_target = math.sqrt(sum(value * value for value in target_vector))
-    broadcast_target = spark.sparkContext.broadcast((target_vector, norm_target))
+    target_lit = F.array(*[F.lit(float(v)) for v in target_vector])
 
-    def cosine_similarity(features: Iterable[float]) -> float:
-        target, target_norm = broadcast_target.value
-        dot = sum(a * b for a, b in zip(features, target))
-        norm_vec = math.sqrt(sum(v * v for v in features))
-        if target_norm == 0 or norm_vec == 0:
-            return 0.0
-        return float(dot / (target_norm * norm_vec))
+    # Compute cosine similarity without Python UDFs
+    dot = F.aggregate(
+        F.zip_with(F.col("features"), target_lit, lambda x, y: x * y),
+        F.lit(0.0),
+        lambda acc, v: acc + v,
+    )
+    norm_vec = F.sqrt(
+        F.aggregate(F.transform(F.col("features"), lambda x: x * x), F.lit(0.0), lambda acc, v: acc + v)
+    )
+    score_col = F.when((F.lit(norm_target) == 0) | (norm_vec == 0), F.lit(0.0)).otherwise(
+        dot / (F.lit(norm_target) * norm_vec)
+    )
 
-    similarity_udf = F.udf(cosine_similarity, DoubleType())
     scored = (
-        item_factors.withColumn("score", similarity_udf("features"))
-        .withColumnRenamed("id", "movieIndexInt")
+        item_factors.withColumnRenamed("id", "movieIndexInt")
+        .withColumn("score", score_col)
         .filter(F.col("movieIndexInt") != target_index)
         .orderBy(F.col("score").desc())
         .limit(top_n)
     )
 
     item_labels = _index_lookup(item_indexer.labels)
-    lookup_udf = F.udf(lambda idx: item_labels.get(int(idx)), StringType())
-    result = scored.withColumn("movieId", lookup_udf("movieIndexInt")).dropna(subset=["movieId"])
+    labels_df = _labels_dataframe(spark, item_labels)
+    result = scored.join(labels_df, on="movieIndexInt", how="inner")
     if movies is not None:
         result = result.join(movies, on="movieId", how="left")
     return result.select("movieId", "title", "genres", "score") if "title" in result.columns else result.select(
