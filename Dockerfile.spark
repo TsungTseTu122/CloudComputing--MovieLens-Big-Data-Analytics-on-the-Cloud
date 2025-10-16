@@ -3,7 +3,11 @@ FROM apache/spark:3.5.6
 USER root
 RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-       python3.11 python3.11-venv python3.11-distutils curl ca-certificates \
+       software-properties-common curl ca-certificates gnupg \
+    && add-apt-repository ppa:deadsnakes/ppa -y \
+    && apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+       python3.11 python3.11-venv python3.11-distutils \
     && curl -fsSL https://bootstrap.pypa.io/get-pip.py -o /tmp/get-pip.py \
     && python3.11 /tmp/get-pip.py \
     && ln -sf /usr/bin/python3.11 /usr/bin/python3 \
@@ -14,4 +18,3 @@ RUN apt-get update \
 # Ensure Spark uses Python 3.11 for both driver and executors
 ENV PYSPARK_PYTHON=python3.11 \
     PYSPARK_DRIVER_PYTHON=python3.11
-
