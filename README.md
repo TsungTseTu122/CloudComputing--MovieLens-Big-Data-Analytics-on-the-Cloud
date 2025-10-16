@@ -138,10 +138,102 @@ Key options:
 
 You can also import `src.recommendation` inside a notebook to visualize the results.
 
+## Usage (Cluster Mode)
+
+After uploading CSVs to HDFS, you can run the recommender on the Spark cluster.
+
+1) Ensure services are running
+
+```
+docker compose up -d
+```
+
+2) Run the recommender on the cluster with tuned settings (example)
+
+```
+docker compose exec \
+  -e SPARK_HOME=/home/jovyan/spark-3.5.6-bin-hadoop3 \
+  -e PYSPARK_SUBMIT_ARGS="--conf spark.executor.instances=1 --conf spark.executor.cores=2 --conf spark.executor.memory=4g --conf spark.executor.memoryOverhead=1g --conf spark.driver.memory=4g --conf spark.sql.shuffle.partitions=64 pyspark-shell" \
+  -w /home/jovyan/work \
+  jupyter \
+  python -m src.recommendation \
+    --master spark://spark-master:7077 \
+    --ratings-path hdfs://namenode:8020/user/hadoop/movielens/ratings.csv \
+    --movies-path  hdfs://namenode:8020/user/hadoop/movielens/movies.csv \
+    --rank 10 --max-iter 5 \
+    --user-id 1 --top-n 5
+```
+
+Example output (truncated):
+
+```
++------+-------+---------------------------------------+------------------+---------+
+|userId|movieId|title                                  |genres            |score    |
++------+-------+---------------------------------------+------------------+---------+
+|1     |194434 |Adrenaline (1990)                      |(no genres listed)|5.5554385|
+|1     |194334 |Les Luthiers: El Grosso Concerto (2001)|(no genres listed)|5.4845195|
+|1     |203882 |Dead in the Water (2006)               |Horror            |5.4709344|
+|1     |203633 |The Bribe (2018)                       |Comedy|Crime      |5.402133 |
+|1     |183947 |NOFX Backstage Passport 2              |(no genres listed)|5.3676186|
++------+-------+---------------------------------------+------------------+---------+
+```
+
+Notes:
+- The example settings trade some accuracy for stability on a single-node worker. Increase memory/cores based on your machine.
+- UIs: Spark Master http://localhost:8080, NameNode http://localhost:9870, DataNode http://localhost:9864, Jupyter http://localhost:8888
+
+## Usage (Local Mode)
+
+Run the pipeline in a single JVM (no executors):
+
+```
+docker compose exec -w /home/jovyan/work jupyter \
+  python -m src.recommendation \
+  --master-local \
+  --ratings-path hdfs://namenode:8020/user/hadoop/movielens/ratings.csv \
+  --movies-path  hdfs://namenode:8020/user/hadoop/movielens/movies.csv \
+  --user-id 1 --top-n 5
+```
+
+## Notebooks
+
+Open Jupyter at http://localhost:8888 and use `notebooks/Recommender.ipynb`.
+
+Starter cell for the cluster session:
+
+```
+from pyspark.sql import SparkSession
+spark = (
+    SparkSession.builder
+    .master("spark://spark-master:7077")
+    .appName("RecommenderNotebook")
+    .config("spark.sql.shuffle.partitions", "64")
+    .getOrCreate()
+)
+
+from src import recommendation as rec
+ratings = rec.load_ratings(spark, "hdfs://namenode:8020/user/hadoop/movielens/ratings.csv")
+movies  = rec.load_movies(spark,  "hdfs://namenode:8020/user/hadoop/movielens/movies.csv")
+res = rec.train_model(ratings, rank=10, max_iter=5, reg_param=0.1)
+rec.recommend_for_user(res, "1", top_n=5, movies=movies).show(truncate=False)
+```
+
+## Version Alignment
+
+- Spark cluster: 3.5.6 (`Dockerfile.spark` + `docker-compose.yml` build target)
+- PySpark (driver): 3.5.6 (`requirements.txt`)
+- Python: 3.11 on driver and executors (`Dockerfile.spark` compiles 3.11 and sets `PYSPARK_PYTHON`)
+
+Tip: After recreating the Jupyter container, run `docker compose exec jupyter pip install -r work/requirements.txt` to restore Python packages.
+
+## Data Upload Scripts (Cross‑platform)
+
+- PowerShell (Windows): `scripts/load_to_hdfs.ps1 -DataDir "data/movielens/25m"`
+- Bash (Linux/macOS/WSL): `bash scripts/load_to_hdfs.sh`
+
 ## Future Improvements
 
-- Enhance model performance with deep learning-based collaborative filtering.
-
-- Optimize Spark configurations for faster data processing.
-
-- Implement real-time recommendations using streaming data analysis.
+- Sweep ALS hyperparameters and support implicit feedback mode.
+- Add popularity baseline and hybrid re‑ranking for cold‑start.
+- Persist models and serve recommendations behind a lightweight API.
+- Batch inference to precompute top‑N per user and materialize to Parquet.
