@@ -1,20 +1,27 @@
 FROM apache/spark:3.5.6
 
 USER root
+# Build and install Python 3.11 from source (robust on Ubuntu 20.04/focal)
 RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-       software-properties-common curl ca-certificates gnupg \
-    && add-apt-repository ppa:deadsnakes/ppa -y \
-    && apt-get update \
-    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-       python3.11 python3.11-venv python3.11-distutils \
+       build-essential wget curl ca-certificates \
+       zlib1g-dev libssl-dev libbz2-dev libreadline-dev libsqlite3-dev \
+       libffi-dev liblzma-dev tk-dev uuid-dev libncursesw5-dev \
+    && PY_VER=3.11.9 \
+    && cd /tmp \
+    && wget -q https://www.python.org/ftp/python/${PY_VER}/Python-${PY_VER}.tgz \
+    && tar -xzf Python-${PY_VER}.tgz \
+    && cd Python-${PY_VER} \
+    && ./configure --enable-optimizations --with-lto --prefix=/usr/local \
+    && make -j"$(nproc)" \
+    && make altinstall \
+    && ln -sf /usr/local/bin/python3.11 /usr/local/bin/python3 \
     && curl -fsSL https://bootstrap.pypa.io/get-pip.py -o /tmp/get-pip.py \
-    && python3.11 /tmp/get-pip.py \
-    && ln -sf /usr/bin/python3.11 /usr/bin/python3 \
-    && ln -sf /usr/bin/python3.11 /usr/local/bin/python \
+    && /usr/local/bin/python3.11 /tmp/get-pip.py \
     && ln -sf /usr/local/bin/pip3 /usr/local/bin/pip \
-    && rm -rf /var/lib/apt/lists/* /tmp/get-pip.py
+    && cd / \
+    && rm -rf /tmp/Python-${PY_VER}* /var/lib/apt/lists/* /tmp/get-pip.py
 
 # Ensure Spark uses Python 3.11 for both driver and executors
-ENV PYSPARK_PYTHON=python3.11 \
-    PYSPARK_DRIVER_PYTHON=python3.11
+ENV PYSPARK_PYTHON=/usr/local/bin/python3.11 \
+    PYSPARK_DRIVER_PYTHON=/usr/local/bin/python3.11
