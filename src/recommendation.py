@@ -248,6 +248,76 @@ def similar_items(
     )
 
 
+def _user_labels_dataframe(spark: SparkSession, user_labels: Dict[int, str]) -> DataFrame:
+    data = [(int(idx), uid) for idx, uid in user_labels.items()]
+    return spark.createDataFrame(data, ["userIndexInt", "userId"])  # type: ignore[arg-type]
+
+
+def _parse_year_from_title(title_col: F.Column) -> F.Column:
+    return F.regexp_extract(title_col, r"\((\d{4})\)$", 1).cast("int")
+
+
+def _write_artifacts(
+    tr: TrainingResult,
+    ratings: DataFrame,
+    movies: Optional[DataFrame],
+    out_dir: str,
+    topk: int,
+) -> None:
+    spark = ratings.sparkSession
+    # Movies meta with year
+    movies_df = movies if movies is not None else spark.createDataFrame([], "movieId string, title string, genres string")
+    movies_meta = movies_df.select(
+        F.col("movieId"), F.col("title"), F.col("genres"), _parse_year_from_title(F.col("title")).alias("year")
+    )
+    movies_meta.write.mode("overwrite").parquet(f"{out_dir}/movies_meta")
+
+    # user_topn
+    user_indexer: StringIndexerModel = tr.pipeline_model.stages[0]  # type: ignore[assignment]
+    item_indexer: StringIndexerModel = tr.pipeline_model.stages[1]  # type: ignore[assignment]
+    user_labels = _index_lookup(user_indexer.labels)
+    item_labels = _index_lookup(item_indexer.labels)
+    users_df = _user_labels_dataframe(spark, user_labels)
+    items_df = _labels_dataframe(spark, item_labels)
+
+    recs_all = tr.als_model.recommendForAllUsers(topk).withColumnRenamed("userCol", "userIndexInt")
+    # Spark returns column named after training userCol (userIndexInt) in recent versions
+    if "userIndexInt" not in recs_all.columns:
+        # Fallback: try default "userId"/"user"
+        for c in ["user", "userId"]:
+            if c in recs_all.columns:
+                recs_all = recs_all.withColumnRenamed(c, "userIndexInt")
+                break
+
+    exploded = (
+        recs_all.select(F.col("userIndexInt"), F.explode("recommendations").alias("rec"))
+        .select(
+            F.col("userIndexInt"),
+            F.col("rec.rating").alias("score"),
+            F.col("rec.movieIndexInt").cast("int").alias("movieIndexInt"),
+        )
+        .join(users_df, on="userIndexInt", how="inner")
+        .join(items_df, on="movieIndexInt", how="inner")
+        .join(movies_meta, on="movieId", how="left")
+        .select("userId", "movieId", "score", "title", "genres", "year")
+    )
+    exploded.write.mode("overwrite").parquet(f"{out_dir}/user_topn")
+
+    # popularity (global)
+    pop = (
+        ratings.groupBy("movieId").agg(F.count(F.lit(1)).alias("cnt"), F.avg("rating").alias("avg"))
+        .withColumn("pop_score", F.col("cnt"))
+        .join(movies_meta, on="movieId", how="left")
+        .select("movieId", "pop_score", "title", "genres", "year")
+    )
+    pop.write.mode("overwrite").parquet(f"{out_dir}/popularity")
+
+    # item_factors with movieId
+    item_factors = tr.als_model.itemFactors.withColumnRenamed("id", "movieIndexInt")
+    item_factors = item_factors.join(items_df, on="movieIndexInt", how="inner").select("movieId", "features")
+    item_factors.write.mode("overwrite").parquet(f"{out_dir}/item_factors")
+
+
 def parse_args(args: Optional[Iterable[str]] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Train and query the MovieLens ALS recommender.")
     parser.add_argument("--ratings-path", default=DEFAULT_RATINGS_PATH, help="Path to ratings CSV")
@@ -262,6 +332,10 @@ def parse_args(args: Optional[Iterable[str]] = None) -> argparse.Namespace:
     parser.add_argument("--movie-id", help="Movie ID for which to produce similar-item suggestions")
     parser.add_argument("--output", help="Optional path to write recommendations (Parquet)")
     parser.add_argument("--master-local", action="store_true", help="Force local[*] master for testing")
+    # Artifact writing
+    parser.add_argument("--write-artifacts", action="store_true", help="Write precomputed artifacts and exit")
+    parser.add_argument("--precompute-dir", default="outputs", help="Directory to write artifacts")
+    parser.add_argument("--topn-k", type=int, default=100, help="Top-K size for precomputed recommendations")
     return parser.parse_args(list(args) if args is not None else None)
 
 
@@ -287,6 +361,19 @@ def main(cli_args: Optional[Iterable[str]] = None) -> int:
         max_iter=args.max_iter,
         implicit_prefs=args.implicit,
     )
+
+    # Optionally write precomputed artifacts and exit
+    if args.write_artifacts:
+        _write_artifacts(
+            training_result,
+            ratings=ratings,
+            movies=movies,
+            out_dir=args.precompute_dir,
+            topk=args.topn_k,
+        )
+        print(f"Artifacts written under {args.precompute_dir}")
+        spark.stop()
+        return 0
 
     print("Evaluation metrics:")
     for metric, value in training_result.metrics.items():

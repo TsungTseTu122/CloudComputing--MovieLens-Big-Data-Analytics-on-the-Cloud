@@ -7,3 +7,6 @@ seaborn
 wordcloud
 requests
 pytest
+fastapi
+uvicorn[standard]
+pyarrow

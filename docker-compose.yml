@@ -86,3 +86,18 @@ services:
 volumes:
   hdfs_namenode:
   hdfs_datanode:
+
+---
+
+services:
+  api:
+    image: python:3.11-slim
+    container_name: api
+    working_dir: /app
+    volumes:
+      - ./:/app
+    environment:
+      - PRECOMPUTE_DIR=/app/outputs
+    command: bash -lc "pip install -r requirements.txt && uvicorn api.main:app --host 0.0.0.0 --port 8000"
+    ports:
+      - "8000:8000"

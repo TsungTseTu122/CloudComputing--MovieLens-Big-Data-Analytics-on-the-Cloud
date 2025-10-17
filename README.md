@@ -182,6 +182,44 @@ Notes:
 - The example settings trade some accuracy for stability on a single-node worker. Increase memory/cores based on your machine.
 - UIs: Spark Master http://localhost:8080, NameNode http://localhost:9870, DataNode http://localhost:9864, Jupyter http://localhost:8888
 
+## Precompute + Serve (API)
+
+Phase 1 exposes a lightweight API on top of precomputed artifacts.
+
+1) Precompute artifacts (writes to `outputs/`)
+
+Cluster example (tuned resources):
+
+```
+docker compose exec \
+  -e SPARK_HOME=/home/jovyan/spark-3.5.6-bin-hadoop3 \
+  -e PYSPARK_SUBMIT_ARGS="--conf spark.executor.instances=1 --conf spark.executor.cores=2 --conf spark.executor.memory=4g --conf spark.executor.memoryOverhead=1g --conf spark.driver.memory=4g --conf spark.sql.shuffle.partitions=64 pyspark-shell" \
+  -w /home/jovyan/work \
+  jupyter \
+  python -m src.recommendation \
+    --master spark://spark-master:7077 \
+    --ratings-path hdfs://namenode:8020/user/hadoop/movielens/ratings.csv \
+    --movies-path  hdfs://namenode:8020/user/hadoop/movielens/movies.csv \
+    --rank 10 --max-iter 5 \
+    --write-artifacts --precompute-dir outputs --topn-k 100
+```
+
+2) Start the API
+
+```
+docker compose up -d api
+```
+
+3) Try endpoints
+
+```
+curl "http://localhost:8000/health"
+curl "http://localhost:8000/recommendations/user/1?topN=5"
+curl "http://localhost:8000/recommendations/item/194434?topN=5"
+curl "http://localhost:8000/popular?topN=10&genres=Horror"
+curl -X POST "http://localhost:8000/feedback" -H "Content-Type: application/json" -d '{"userId":"1","movieId":"194434","action":"click"}'
+```
+
 ## Usage (Local Mode)
 
 Run the pipeline in a single JVM (no executors):
