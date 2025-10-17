@@ -197,7 +197,30 @@ docker compose exec -w /home/jovyan/work jupyter \
 
 ## Notebooks
 
-Open Jupyter at http://localhost:8888 and use `notebooks/Recommender.ipynb`.
+Open Jupyter at http://localhost:8888 and use the notebooks in `notebooks/`.
+
+### Project.ipynb (Exploration)
+
+Purpose: original exploratory analysis of the MovieLens CSVs (schema, sampling, quick visuals), running against HDFS on the cluster.
+
+Starter cell:
+
+```
+from pyspark.sql import SparkSession
+spark = (
+    SparkSession.builder
+    .master("spark://spark-master:7077")
+    .appName("MovieLensAnalysis")
+    .getOrCreate()
+)
+
+movies = spark.read.csv("hdfs://namenode:8020/user/hadoop/movielens/movies.csv", header=True, inferSchema=True)
+movies.show(20, truncate=False)
+```
+
+### Recommender.ipynb (ALS Walkthrough)
+
+Purpose: train/evaluate ALS and display top‑N recommendations.
 
 Starter cell for the cluster session:
 
@@ -217,6 +240,13 @@ movies  = rec.load_movies(spark,  "hdfs://namenode:8020/user/hadoop/movielens/mo
 res = rec.train_model(ratings, rank=10, max_iter=5, reg_param=0.1)
 rec.recommend_for_user(res, "1", top_n=5, movies=movies).show(truncate=False)
 ```
+
+## Report
+
+- File: `reports/TsungTse_Tu_s4780187_proposal.docx`
+- Purpose: original project proposal outlining goals, methods (clustering, classification, association rules), and data sources.
+- How to open: Microsoft Word, LibreOffice, or Google Docs.
+- Note: for reference only — not required to run the stack.
 
 ## Version Alignment
 
