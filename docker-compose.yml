@@ -98,6 +98,6 @@ services:
       - ./:/app
     environment:
       - PRECOMPUTE_DIR=/app/outputs
-    command: bash -lc "pip install -r requirements.txt && uvicorn api.main:app --host 0.0.0.0 --port 8000"
+    command: bash -lc "pip install fastapi uvicorn[standard] numpy pandas pyarrow && uvicorn api.main:app --host 0.0.0.0 --port 8000"
     ports:
       - "8000:8000"

@@ -18,3 +18,4 @@ data/ml-*.zip*
 reports/*.docx
 *.parquet
 
+outputs/

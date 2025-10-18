@@ -270,7 +270,7 @@ def _write_artifacts(
     movies_meta = movies_df.select(
         F.col("movieId"), F.col("title"), F.col("genres"), _parse_year_from_title(F.col("title")).alias("year")
     )
-    movies_meta.write.mode("overwrite").parquet(f"{out_dir}/movies_meta")
+    movies_meta.coalesce(1).write.mode("overwrite").parquet(f"{out_dir}/movies_meta")
 
     # user_topn
     user_indexer: StringIndexerModel = tr.pipeline_model.stages[0]  # type: ignore[assignment]
@@ -280,28 +280,35 @@ def _write_artifacts(
     users_df = _user_labels_dataframe(spark, user_labels)
     items_df = _labels_dataframe(spark, item_labels)
 
-    recs_all = tr.als_model.recommendForAllUsers(topk).withColumnRenamed("userCol", "userIndexInt")
-    # Spark returns column named after training userCol (userIndexInt) in recent versions
+    recs_all = tr.als_model.recommendForAllUsers(topk)
+    # Normalize the user column name to userIndexInt
     if "userIndexInt" not in recs_all.columns:
-        # Fallback: try default "userId"/"user"
-        for c in ["user", "userId"]:
-            if c in recs_all.columns:
-                recs_all = recs_all.withColumnRenamed(c, "userIndexInt")
-                break
+        if "userCol" in recs_all.columns:
+            recs_all = recs_all.withColumnRenamed("userCol", "userIndexInt")
+        else:
+            for c in ["user", "userId"]:
+                if c in recs_all.columns:
+                    recs_all = recs_all.withColumnRenamed(c, "userIndexInt")
+                    break
+
+    # Determine the index field inside the recommendations struct (exclude rating)
+    rec_elem = recs_all.schema["recommendations"].dataType.elementType
+    idx_fields = [fn for fn in rec_elem.fieldNames() if fn != "rating"]
+    rec_index_field = idx_fields[0] if idx_fields else "movieIndexInt"
 
     exploded = (
         recs_all.select(F.col("userIndexInt"), F.explode("recommendations").alias("rec"))
         .select(
             F.col("userIndexInt"),
             F.col("rec.rating").alias("score"),
-            F.col("rec.movieIndexInt").cast("int").alias("movieIndexInt"),
+            F.col("rec").getField(rec_index_field).cast("int").alias("movieIndexInt"),
         )
         .join(users_df, on="userIndexInt", how="inner")
         .join(items_df, on="movieIndexInt", how="inner")
         .join(movies_meta, on="movieId", how="left")
         .select("userId", "movieId", "score", "title", "genres", "year")
     )
-    exploded.write.mode("overwrite").parquet(f"{out_dir}/user_topn")
+    exploded.coalesce(1).write.mode("overwrite").parquet(f"{out_dir}/user_topn")
 
     # popularity (global)
     pop = (
@@ -310,12 +317,12 @@ def _write_artifacts(
         .join(movies_meta, on="movieId", how="left")
         .select("movieId", "pop_score", "title", "genres", "year")
     )
-    pop.write.mode("overwrite").parquet(f"{out_dir}/popularity")
+    pop.coalesce(1).write.mode("overwrite").parquet(f"{out_dir}/popularity")
 
     # item_factors with movieId
     item_factors = tr.als_model.itemFactors.withColumnRenamed("id", "movieIndexInt")
     item_factors = item_factors.join(items_df, on="movieIndexInt", how="inner").select("movieId", "features")
-    item_factors.write.mode("overwrite").parquet(f"{out_dir}/item_factors")
+    item_factors.coalesce(1).write.mode("overwrite").parquet(f"{out_dir}/item_factors")
 
 
 def parse_args(args: Optional[Iterable[str]] = None) -> argparse.Namespace:
