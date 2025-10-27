@@ -2,6 +2,7 @@ import os
 import json
 from datetime import datetime
 from typing import List, Optional
+from contextlib import asynccontextmanager
 
 import numpy as np
 import pandas as pd
@@ -32,7 +33,14 @@ def _load_parquet(path: str) -> pd.DataFrame:
     return pd.DataFrame()
 
 
-app = FastAPI(title="MovieLens Recommender API", version="0.1.0")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Load data on startup
+    load_data()
+    yield
+
+
+app = FastAPI(title="MovieLens Recommender API", version="0.1.0", lifespan=lifespan)
 
 
 class Feedback(BaseModel):
@@ -41,7 +49,6 @@ class Feedback(BaseModel):
     action: str  # click|like|dismiss
 
 
-@app.on_event("startup")
 def load_data() -> None:
     app.state.user_topn = _load_parquet("user_topn")
     app.state.popularity = _load_parquet("popularity")
