@@ -9,9 +9,8 @@ from fastapi.testclient import TestClient
 
 
 def _write_parquet(df: pd.DataFrame, base: Path, name: str) -> None:
-    out = base / name
-    out.mkdir(parents=True, exist_ok=True)
-    df.to_parquet(out)
+    out = base / f"{name}.parquet"  # ensure it's a file, not a directory
+    df.to_parquet(out, engine="pyarrow")  # engine explicit for consistency
 
 
 def test_api_endpoints_with_fixtures(tmp_path: Path, monkeypatch) -> None:
