@@ -35,6 +35,11 @@
         <div id="popular-row" class="row"></div>
       </section>
 
+      <section id="mylist" class="panel">
+        <h2>My List</h2>
+        <div id="mylist-row" class="row"></div>
+      </section>
+
       <section id="genres" class="panel">
         <h2>Top by Genre</h2>
         <div id="genres-list" class="chips"></div>
@@ -55,6 +60,8 @@
     <template id="card-template">
       <div class="card">
         <div class="poster">🎬</div>
+        <div class="badge" hidden>★ 0.00</div>
+        <button class="fav" title="Add to My List">♡</button>
         <div class="meta">
           <div class="title"></div>
           <div class="sub"></div>

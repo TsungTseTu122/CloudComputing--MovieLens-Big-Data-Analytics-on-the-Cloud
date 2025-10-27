@@ -10,12 +10,36 @@ function card(node, movie) {
   if (movie.year) sub.push(String(movie.year));
   if (movie.score != null) sub.push(`★ ${movie.score.toFixed(2)}`);
   el.querySelector('.sub').textContent = sub.join(' • ');
+  const badge = el.querySelector('.badge');
+  if (movie.score != null) {
+    badge.textContent = `★ ${Number(movie.score).toFixed(2)}`;
+    badge.hidden = false;
+  }
   if (movie.poster) {
     const p = el.querySelector('.poster');
     p.classList.add('has-img');
     p.style.backgroundImage = `url('${movie.poster}')`;
     p.textContent = '';
   }
+  // favorites toggle
+  const favBtn = el.querySelector('.fav');
+  const favs = getFavorites();
+  if (favs.has(movie.movieId)) favBtn.classList.add('active'), favBtn.textContent = '❤';
+  favBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const set = getFavorites();
+    if (set.has(movie.movieId)) {
+      set.delete(movie.movieId);
+      favBtn.classList.remove('active');
+      favBtn.textContent = '♡';
+    } else {
+      set.add(movie.movieId);
+      favBtn.classList.add('active');
+      favBtn.textContent = '❤';
+    }
+    saveFavorites(set);
+    renderMyList();
+  });
   node.appendChild(el);
 }
 
@@ -149,4 +173,40 @@ window.addEventListener('DOMContentLoaded', async () => {
   handleBrowse();
   await loadPopular();
   await loadGenres();
+  renderMyList();
+  enableKeyboardScroll();
 });
+
+// Favorites (localStorage)
+const FAV_KEY = 'ml_favorites';
+function getFavorites() {
+  try { return new Set(JSON.parse(localStorage.getItem(FAV_KEY) || '[]')); } catch { return new Set(); }
+}
+function saveFavorites(set) {
+  localStorage.setItem(FAV_KEY, JSON.stringify(Array.from(set)));
+}
+async function renderMyList() {
+  const row = document.getElementById('mylist-row');
+  if (!row) return;
+  row.innerHTML = '';
+  const ids = Array.from(getFavorites());
+  if (!ids.length) { row.textContent = 'Add titles with the heart to build your list.'; return; }
+  try {
+    const items = await fetchJSON(`/movies/by_ids?movieIds=${encodeURIComponent(ids.join(','))}`);
+    const posters = await postersFor(items);
+    items.map((m) => ({...m, poster: posters[m.movieId]})).forEach((m) => card(row, m));
+  } catch { row.textContent = 'Failed to load list'; }
+}
+
+// Keyboard row scrolling
+function enableKeyboardScroll() {
+  const rows = $$('.row');
+  rows.forEach((r) => r.addEventListener('mouseenter', () => rows.forEach((x) => x.classList.toggle('active', x===r))));
+  window.addEventListener('keydown', (e) => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    const active = document.querySelector('.row.active');
+    if (!active) return;
+    const dx = e.key === 'ArrowRight' ? 300 : -300;
+    active.scrollBy({ left: dx, behavior: 'smooth' });
+  });
+}
