@@ -147,6 +147,6 @@ def feedback(fb: Feedback) -> dict:
     os.makedirs(out_dir, exist_ok=True)
     path = os.path.join(out_dir, f"{datetime.utcnow().date().isoformat()}.jsonl")
     with open(path, "a", encoding="utf-8") as f:
-        f.write(json.dumps({"ts": datetime.utcnow().isoformat(), **fb.dict()}, ensure_ascii=False) + "\n")
+        f.write(json.dumps({"ts": datetime.utcnow().isoformat(), **fb.model_dump()}, ensure_ascii=False) + "\n")
     return {"status": "ok"}
 
