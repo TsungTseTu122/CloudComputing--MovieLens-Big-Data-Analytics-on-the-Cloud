@@ -237,6 +237,16 @@ What you get:
 - Genre chips with top picks (from `/genres` + `/popular?genres=...`)
 - Personalized row: enter `userId` and optional filters to fetch `/recommendations/user/{user_id}`
 
+Posters (optional): set a TMDB API key to display thumbnails
+
+```
+# PowerShell
+$env:TMDB_API_KEY = "<your_tmdb_key>"
+# Bash
+export TMDB_API_KEY="<your_tmdb_key>"
+```
+The UI will call `/posters?movieIds=...` which looks up posters in TMDB by title/year and returns thumbnail URLs.
+
 ## Usage (Local Mode)
 
 Run the pipeline in a single JVM (no executors):
