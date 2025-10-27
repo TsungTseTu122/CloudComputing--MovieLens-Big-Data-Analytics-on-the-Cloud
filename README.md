@@ -305,3 +305,8 @@ Tip: After recreating the Jupyter container, run `docker compose exec jupyter pi
 - Add popularity baseline and hybrid re‑ranking for cold‑start.
 - Persist models and serve recommendations behind a lightweight API.
 - Batch inference to precompute top‑N per user and materialize to Parquet.
+
+## Test Status
+
+- ✅ All tests pass under Python 3.11, Spark 3.3+, Hadoop 3.3.1, pyarrow 14+.
+- Tested on Windows 10 with JDK 17.
