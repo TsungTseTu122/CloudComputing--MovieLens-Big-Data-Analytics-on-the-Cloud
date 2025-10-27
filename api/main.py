@@ -13,10 +13,23 @@ PRECOMPUTE_DIR = os.getenv("PRECOMPUTE_DIR", "outputs")
 
 
 def _load_parquet(path: str) -> pd.DataFrame:
-    full = os.path.join(PRECOMPUTE_DIR, path)
-    if not os.path.exists(full):
+    base = PRECOMPUTE_DIR
+    candidates = []
+    exact = os.path.join(base, path)
+    if os.path.exists(exact):
+        candidates.append(exact)
+    if not path.endswith(".parquet"):
+        with_ext = os.path.join(base, f"{path}.parquet")
+        if os.path.exists(with_ext):
+            candidates.append(with_ext)
+    if not candidates:
         return pd.DataFrame()
-    return pd.read_parquet(full)
+    for cand in candidates:
+        try:
+            return pd.read_parquet(cand, engine="pyarrow")
+        except Exception:
+            continue
+    return pd.DataFrame()
 
 
 app = FastAPI(title="MovieLens Recommender API", version="0.1.0")
