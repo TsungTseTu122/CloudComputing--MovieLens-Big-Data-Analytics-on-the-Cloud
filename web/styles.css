@@ -1,0 +1,32 @@
+:root {
+  --bg: #0f0f12;
+  --panel: #17181d;
+  --text: #e7e7ea;
+  --muted: #a1a1ad;
+  --chip: #2a2c34;
+  --accent: #e50914;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"; background: var(--bg); color: var(--text); }
+.header { position: sticky; top: 0; display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; background: linear-gradient(180deg, rgba(0,0,0,0.6), rgba(0,0,0,0)); z-index: 5; }
+.brand { font-weight: 700; letter-spacing: 0.3px; }
+.nav a { color: var(--muted); margin-left: 16px; text-decoration: none; }
+.nav a:hover { color: var(--text); }
+.container { padding: 10px 20px 40px; }
+.panel { margin: 18px 0 28px; }
+.panel h2 { margin: 10px 0 12px; font-size: 1.2rem; font-weight: 600; }
+.row { display: grid; grid-auto-flow: column; grid-auto-columns: 180px; gap: 12px; overflow-x: auto; padding-bottom: 8px; }
+.row::-webkit-scrollbar { height: 8px; }
+.row::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+.card { background: var(--panel); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px; transition: transform 0.12s ease-in-out; min-height: 170px; }
+.card:hover { transform: translateY(-2px); }
+.poster { background: #22242b; height: 90px; border-radius: 6px; display: grid; place-items: center; font-size: 28px; }
+.meta .title { font-weight: 600; font-size: 0.95rem; }
+.meta .sub { color: var(--muted); font-size: 0.8rem; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.chip { background: var(--chip); color: var(--text); border: none; padding: 6px 10px; border-radius: 999px; cursor: pointer; }
+.chip.active { background: var(--accent); }
+.user-form { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.user-form input, .user-form button { background: var(--panel); color: var(--text); border: 1px solid #2a2c34; border-radius: 6px; padding: 8px 10px; }
+.user-form button { background: var(--accent); border: none; cursor: pointer; }
+

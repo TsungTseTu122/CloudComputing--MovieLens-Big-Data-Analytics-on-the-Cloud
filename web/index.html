@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MovieLens Recommender UI</title>
+    <link rel="stylesheet" href="/ui/styles.css" />
+  </head>
+  <body>
+    <header class="header">
+      <div class="brand">MovieLens Recommender</div>
+      <nav class="nav">
+        <a href="#top-all">Top All Time</a>
+        <a href="#genres">By Genre</a>
+        <a href="#user">For You</a>
+      </nav>
+    </header>
+
+    <main class="container">
+      <section id="user" class="panel">
+        <h2>Personalized Recommendations</h2>
+        <form id="user-form" class="user-form">
+          <input id="userId" type="text" placeholder="Enter userId (e.g., 1)" />
+          <input id="topN" type="number" min="1" max="100" value="20" />
+          <input id="genres" type="text" placeholder="Genres filter (optional, comma-separated)" />
+          <input id="yearFrom" type="number" placeholder="Year from" />
+          <input id="yearTo" type="number" placeholder="Year to" />
+          <button type="submit">Recommend</button>
+        </form>
+        <div id="user-row" class="row"></div>
+      </section>
+
+      <section id="top-all" class="panel">
+        <h2>Top 50 All Time</h2>
+        <div id="popular-row" class="row"></div>
+      </section>
+
+      <section id="genres" class="panel">
+        <h2>Top by Genre</h2>
+        <div id="genres-list" class="chips"></div>
+        <div id="genre-rows"></div>
+      </section>
+    </main>
+
+    <template id="card-template">
+      <div class="card">
+        <div class="poster">🎬</div>
+        <div class="meta">
+          <div class="title"></div>
+          <div class="sub"></div>
+        </div>
+      </div>
+    </template>
+
+    <script src="/ui/app.js"></script>
+  </body>
+  </html>
+
