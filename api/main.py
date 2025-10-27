@@ -183,7 +183,7 @@ def list_genres() -> List[str]:
 
 
 @app.get("/movies")
-def browse_movies(topN: int = 50, genres: Optional[str] = None, year_from: Optional[int] = None, year_to: Optional[int] = None) -> List[dict]:
+def browse_movies(topN: int = 50, genres: Optional[str] = None, year_from: Optional[int] = None, year_to: Optional[int] = None, q: Optional[str] = None) -> List[dict]:
     movies = app.state.movies
     if movies.empty:
         return []
@@ -195,6 +195,9 @@ def browse_movies(topN: int = 50, genres: Optional[str] = None, year_from: Optio
         df = df[df["year"].fillna(0) >= year_from]
     if year_to is not None:
         df = df[df["year"].fillna(9999) <= year_to]
+    if q:
+        qlower = q.lower()
+        df = df[df["title"].fillna("").str.lower().str.contains(qlower)]
     # If popularity is available, rank by it; else leave arbitrary
     pop = app.state.popularity
     if not pop.empty and "pop_score" in pop.columns:
