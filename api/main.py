@@ -9,8 +9,6 @@ import pandas as pd
 from fastapi import FastAPI, Query
 from fastapi.staticfiles import StaticFiles
 import requests
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 
@@ -46,7 +44,6 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="MovieLens Recommender API", version="0.1.0", lifespan=lifespan)
-app.mount("/ui", StaticFiles(directory="web", html=True), name="ui")
 app.mount("/ui", StaticFiles(directory="web", html=True), name="ui")
 
 
@@ -153,22 +150,6 @@ def list_genres() -> List[str]:
     movies = app.state.movies
     if movies.empty:
         return []
-    def split_genres(s: str) -> list[str]:
-        if not isinstance(s, str):
-            return []
-        return [g.strip() for g in s.replace(chr(124), ",").split(",") if g.strip()]
-    all_genres: set[str] = set()
-    for g in movies["genres"].dropna().tolist():
-        for token in split_genres(g):
-            all_genres.add(token)
-    return sorted(all_genres)
-
-
-@app.get("/genres")
-def list_genres() -> List[str]:
-    movies = app.state.movies
-    if movies.empty:
-        return []
     # Split pipe-delimited genres if present, else single token
     def split_genres(s: str) -> list[str]:
         if not isinstance(s, str):
@@ -244,6 +225,48 @@ def posters(movieIds: str) -> dict:
         except Exception:
             continue
     return out
+
+
+@app.get("/movies/by_ids")
+def movies_by_ids(movieIds: str) -> List[dict]:
+    ids = [m.strip() for m in movieIds.split(",") if m.strip()]
+    movies = app.state.movies
+    if not ids or movies.empty:
+        return []
+    df = movies[movies["movieId"].isin(ids)]
+    df = df.set_index("movieId").reindex(ids).reset_index()
+    return df.to_dict(orient="records")
+
+
+@app.get("/history")
+def history(userId: Optional[str] = None, topN: int = 20) -> List[dict]:
+    fb_dir = os.path.join(PRECOMPUTE_DIR, "feedback")
+    if not os.path.isdir(fb_dir):
+        return []
+    files = sorted(
+        (os.path.join(fb_dir, f) for f in os.listdir(fb_dir) if f.endswith(".jsonl")),
+        reverse=True,
+    )
+    events: List[dict] = []
+    for path in files:
+        try:
+            with open(path, "r", encoding="utf-8") as fh:
+                for line in fh:
+                    try:
+                        rec = json.loads(line)
+                        if not isinstance(rec, dict):
+                            continue
+                        if userId and rec.get("userId") != userId:
+                            continue
+                        events.append(rec)
+                    except Exception:
+                        continue
+        except Exception:
+            continue
+        if len(events) >= topN:
+            break
+    events.sort(key=lambda r: r.get("ts", ""), reverse=True)
+    return events[:topN]
 @app.post("/feedback")
 def feedback(fb: Feedback) -> dict:
     out_dir = os.path.join(PRECOMPUTE_DIR, "feedback")
