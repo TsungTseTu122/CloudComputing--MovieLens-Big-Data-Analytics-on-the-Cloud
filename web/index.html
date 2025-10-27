@@ -40,6 +40,16 @@
         <div id="genres-list" class="chips"></div>
         <div id="genre-rows"></div>
       </section>
+
+      <section id="browse" class="panel">
+        <h2>Browse</h2>
+        <form id="browse-form" class="user-form">
+          <input id="q" type="text" placeholder="Search title…" />
+          <input id="bTopN" type="number" value="50" min="1" max="200" />
+          <button type="submit">Search</button>
+        </form>
+        <div id="browse-row" class="row"></div>
+      </section>
     </main>
 
     <template id="card-template">
@@ -55,4 +65,3 @@
     <script src="/ui/app.js"></script>
   </body>
   </html>
-

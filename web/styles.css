@@ -23,10 +23,10 @@ body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubunt
 .poster { background: #22242b; height: 90px; border-radius: 6px; display: grid; place-items: center; font-size: 28px; }
 .meta .title { font-weight: 600; font-size: 0.95rem; }
 .meta .sub { color: var(--muted); font-size: 0.8rem; }
+.poster.has-img { background-size: cover; background-position: center; font-size: 0; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
 .chip { background: var(--chip); color: var(--text); border: none; padding: 6px 10px; border-radius: 999px; cursor: pointer; }
 .chip.active { background: var(--accent); }
 .user-form { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
 .user-form input, .user-form button { background: var(--panel); color: var(--text); border: 1px solid #2a2c34; border-radius: 6px; padding: 8px 10px; }
 .user-form button { background: var(--accent); border: none; cursor: pointer; }
-

@@ -10,6 +10,12 @@ function card(node, movie) {
   if (movie.year) sub.push(String(movie.year));
   if (movie.score != null) sub.push(`★ ${movie.score.toFixed(2)}`);
   el.querySelector('.sub').textContent = sub.join(' • ');
+  if (movie.poster) {
+    const p = el.querySelector('.poster');
+    p.classList.add('has-img');
+    p.style.backgroundImage = `url('${movie.poster}')`;
+    p.textContent = '';
+  }
   node.appendChild(el);
 }
 
@@ -24,7 +30,8 @@ async function loadPopular() {
   row.innerHTML = '';
   try {
     const data = await fetchJSON('/popular?topN=50');
-    data.forEach((m) => card(row, m));
+    const posters = await postersFor(data);
+    data.map((m) => ({...m, poster: posters[m.movieId]})).forEach((m) => card(row, m));
   } catch (e) {
     row.textContent = 'Failed to load popular titles';
   }
@@ -68,7 +75,8 @@ async function renderGenre(genre) {
   rows.appendChild(section);
   try {
     const data = await fetchJSON(`/popular?topN=20&genres=${encodeURIComponent(genre)}`);
-    data.forEach((m) => card(row, m));
+    const posters = await postersFor(data);
+    data.map((m) => ({...m, poster: posters[m.movieId]})).forEach((m) => card(row, m));
   } catch (e) {
     row.textContent = 'Failed to load';
   }
@@ -95,10 +103,12 @@ async function handleUserForm() {
     if (yearTo) params.set('year_to', yearTo);
     try {
       const data = await fetchJSON(`/recommendations/user/${encodeURIComponent(userId)}?${params}`);
-      if (!data.length) {
+      const posters = await postersFor(data);
+      const withPosters = data.map((m) => ({...m, poster: posters[m.movieId]}));
+      if (!withPosters.length) {
         row.textContent = 'No recommendations found for this user.';
       } else {
-        data.forEach((m) => card(row, m));
+        withPosters.forEach((m) => card(row, m));
       }
     } catch (e) {
       row.textContent = 'Failed to load recommendations';
@@ -106,9 +116,37 @@ async function handleUserForm() {
   });
 }
 
+async function postersFor(items) {
+  try {
+    const ids = items.map((m) => m.movieId).filter(Boolean);
+    if (!ids.length) return {};
+    return await fetchJSON(`/posters?movieIds=${encodeURIComponent(ids.join(','))}`);
+  } catch {
+    return {};
+  }
+}
+
+function handleBrowse() {
+  const form = $('#browse-form');
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const q = $('#q').value.trim();
+    const topN = Number($('#bTopN').value || 50);
+    const row = $('#browse-row');
+    row.innerHTML = '';
+    try {
+      const data = await fetchJSON(`/movies?topN=${topN}${q ? `&q=${encodeURIComponent(q)}` : ''}`);
+      const posters = await postersFor(data);
+      data.map((m) => ({...m, poster: posters[m.movieId]})).forEach((m) => card(row, m));
+    } catch (e) {
+      row.textContent = 'Search failed';
+    }
+  });
+}
+
 window.addEventListener('DOMContentLoaded', async () => {
   handleUserForm();
+  handleBrowse();
   await loadPopular();
   await loadGenres();
 });
-
