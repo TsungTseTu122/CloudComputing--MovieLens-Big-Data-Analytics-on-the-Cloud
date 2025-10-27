@@ -8,11 +8,14 @@ import numpy as np
 import pandas as pd
 from fastapi import FastAPI, Query
 from fastapi.staticfiles import StaticFiles
+import requests
+from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 
 PRECOMPUTE_DIR = os.getenv("PRECOMPUTE_DIR", "outputs")
+TMDB_API_KEY = os.getenv("TMDB_API_KEY")
 
 
 def _load_parquet(path: str) -> pd.DataFrame:
@@ -43,6 +46,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="MovieLens Recommender API", version="0.1.0", lifespan=lifespan)
+app.mount("/ui", StaticFiles(directory="web", html=True), name="ui")
 app.mount("/ui", StaticFiles(directory="web", html=True), name="ui")
 
 
