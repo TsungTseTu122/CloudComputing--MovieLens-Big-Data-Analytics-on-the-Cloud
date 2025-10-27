@@ -51,7 +51,7 @@ async function fetchJSON(url) {
 
 async function loadPopular() {
   const row = $('#popular-row');
-  row.innerHTML = '';
+  showSkeleton(row, 8);
   try {
     const data = await fetchJSON('/popular?topN=50');
     const posters = await postersFor(data);
@@ -116,7 +116,9 @@ async function handleUserForm() {
     const yearFrom = $('#yearFrom').value.trim();
     const yearTo = $('#yearTo').value.trim();
     const row = $('#user-row');
-    row.innerHTML = '';
+    $('#current-user').textContent = userId || 'Guest';
+    localStorage.setItem('ml_user', userId || '');
+    showSkeleton(row, 8);
     if (!userId) {
       row.textContent = 'Enter a userId to see personalized recommendations';
       return;
@@ -134,6 +136,8 @@ async function handleUserForm() {
       } else {
         withPosters.forEach((m) => card(row, m));
       }
+      // Continue Watching
+      await renderContinue(userId);
     } catch (e) {
       row.textContent = 'Failed to load recommendations';
     }
@@ -155,9 +159,9 @@ function handleBrowse() {
   form.addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const q = $('#q').value.trim();
-    const topN = Number($('#bTopN').value || 50);
+    const topN = 50;
     const row = $('#browse-row');
-    row.innerHTML = '';
+    showSkeleton(row, 8);
     try {
       const data = await fetchJSON(`/movies?topN=${topN}${q ? `&q=${encodeURIComponent(q)}` : ''}`);
       const posters = await postersFor(data);
@@ -166,6 +170,8 @@ function handleBrowse() {
       row.textContent = 'Search failed';
     }
   });
+  // Enter to search
+  $('#q').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); form.requestSubmit(); } });
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
@@ -175,6 +181,9 @@ window.addEventListener('DOMContentLoaded', async () => {
   await loadGenres();
   renderMyList();
   enableKeyboardScroll();
+  // Restore last user
+  const lastUser = localStorage.getItem('ml_user');
+  if (lastUser) { $('#userId').value = lastUser; $('#current-user').textContent = lastUser; }
 });
 
 // Favorites (localStorage)
@@ -209,4 +218,35 @@ function enableKeyboardScroll() {
     const dx = e.key === 'ArrowRight' ? 300 : -300;
     active.scrollBy({ left: dx, behavior: 'smooth' });
   });
+}
+
+// Continue Watching
+async function renderContinue(userId) {
+  const row = document.getElementById('continue-row');
+  if (!row) return;
+  showSkeleton(row, 6);
+  try {
+    const evs = await fetchJSON(`/history?userId=${encodeURIComponent(userId)}&topN=50`);
+    const ids = Array.from(new Set(evs.map((e) => e.movieId))).slice(0, 20);
+    if (!ids.length) { row.textContent = 'No recent activity.'; return; }
+    const items = await fetchJSON(`/movies/by_ids?movieIds=${encodeURIComponent(ids.join(','))}`);
+    const posters = await postersFor(items);
+    row.innerHTML='';
+    items.map((m) => ({...m, poster: posters[m.movieId]})).forEach((m) => card(row, m));
+  } catch { row.textContent = 'No recent activity.'; }
+}
+
+// Skeleton helpers
+function showSkeleton(row, n) {
+  row.innerHTML = '';
+  for (let i = 0; i < n; i++) {
+    const d = document.createElement('div');
+    d.className = 'card skeleton';
+    const p = document.createElement('div');
+    p.className = 'poster';
+    const t = document.createElement('div');
+    t.className = 'meta title';
+    d.appendChild(p); d.appendChild(t);
+    row.appendChild(d);
+  }
 }

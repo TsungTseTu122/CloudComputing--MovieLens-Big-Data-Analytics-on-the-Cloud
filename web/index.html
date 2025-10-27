@@ -9,14 +9,33 @@
   <body>
     <header class="header">
       <div class="brand">MovieLens Recommender</div>
+      <div class="user-indicator">User: <span id="current-user">Guest</span></div>
       <nav class="nav">
-        <a href="#top-all">Top All Time</a>
-        <a href="#genres">By Genre</a>
+        <a href="#browse">Search</a>
+        <a href="#top-all">Top</a>
+        <a href="#genres">Genres</a>
         <a href="#user">For You</a>
       </nav>
     </header>
 
-    <main class="container">
+    <main class="container layout">
+      <aside class="sidebar">
+        <div class="side-title">Explore</div>
+        <a class="side-link" href="#browse">Search</a>
+        <a class="side-link" href="#top-all">Top All Time</a>
+        <a class="side-link" href="#continue">Continue Watching</a>
+        <a class="side-link" href="#mylist">My List</a>
+        <div class="side-title">Genres</div>
+        <div id="side-genres" class="side-genres"></div>
+      </aside>
+      <div class="main">
+      <section id="browse" class="panel">
+        <form id="browse-form" class="search-form" role="search">
+          <input id="q" class="search-input" type="text" placeholder="Search movies..." />
+          <button class="search-btn" type="submit">Search</button>
+        </form>
+        <div id="browse-row" class="row"></div>
+      </section>
       <section id="user" class="panel">
         <h2>Personalized Recommendations</h2>
         <form id="user-form" class="user-form">
@@ -35,6 +54,11 @@
         <div id="popular-row" class="row"></div>
       </section>
 
+      <section id="continue" class="panel">
+        <h2>Continue Watching</h2>
+        <div id="continue-row" class="row"></div>
+      </section>
+
       <section id="mylist" class="panel">
         <h2>My List</h2>
         <div id="mylist-row" class="row"></div>
@@ -45,16 +69,7 @@
         <div id="genres-list" class="chips"></div>
         <div id="genre-rows"></div>
       </section>
-
-      <section id="browse" class="panel">
-        <h2>Browse</h2>
-        <form id="browse-form" class="user-form">
-          <input id="q" type="text" placeholder="Search title…" />
-          <input id="bTopN" type="number" value="50" min="1" max="200" />
-          <button type="submit">Search</button>
-        </form>
-        <div id="browse-row" class="row"></div>
-      </section>
+      </div>
     </main>
 
     <template id="card-template">

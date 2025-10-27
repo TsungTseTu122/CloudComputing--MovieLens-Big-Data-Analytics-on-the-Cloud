@@ -35,3 +35,23 @@ body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubunt
 .user-form input, .user-form button { background: var(--panel); color: var(--text); border: 1px solid #2a2c34; border-radius: 6px; padding: 8px 10px; }
 .user-form button { background: var(--accent); border: none; cursor: pointer; }
 .row.active { outline: 1px dashed #333; outline-offset: 2px; }
+
+/* Enhancements and layout overrides */
+.header { position: sticky; top: 0; display: grid; grid-template-columns: 1fr auto auto; gap: 16px; align-items: center; padding: 12px 20px; background: linear-gradient(180deg, rgba(0,0,0,0.6), rgba(0,0,0,0)); z-index: 5; }
+.user-indicator { color: var(--muted); }
+.layout { display: grid; grid-template-columns: 220px 1fr; gap: 14px; }
+.sidebar { position: sticky; top: 56px; height: calc(100vh - 56px); overflow: auto; padding-right: 8px; }
+.side-title { color: var(--muted); font-size: 0.8rem; margin: 10px 0 6px; text-transform: uppercase; letter-spacing: .06em; }
+.side-link { display: block; color: var(--text); text-decoration: none; padding: 6px 8px; border-radius: 6px; }
+.side-link:hover { background: #1d1f26; }
+.side-genres { display: flex; flex-direction: column; gap: 4px; }
+.side-genres .side-link { color: var(--muted); }
+.main { min-width: 0; }
+.chip.active { background: var(--accent); transition: background 120ms ease-in-out; }
+.search-form { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin: 8px 0 12px; }
+.search-input { width: 100%; background: #1a1b20; border: 1px solid #2a2c34; color: var(--text); border-radius: 999px; padding: 10px 14px; font-size: 1rem; }
+.search-btn { background: var(--accent); border: none; color: #fff; padding: 10px 16px; border-radius: 999px; cursor: pointer; }
+.skeleton { position: relative; overflow: hidden; }
+.skeleton::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(255,255,255,0.06), rgba(255,255,255,0.14), rgba(255,255,255,0.06)); animation: shimmer 1.5s infinite; }
+@keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+@media (max-width: 900px) { .layout { grid-template-columns: 1fr; } .sidebar { display: none; } }
