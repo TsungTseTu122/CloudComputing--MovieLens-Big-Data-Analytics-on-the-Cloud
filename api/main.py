@@ -7,6 +7,8 @@ from contextlib import asynccontextmanager
 import numpy as np
 import pandas as pd
 from fastapi import FastAPI, Query
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 
@@ -41,6 +43,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="MovieLens Recommender API", version="0.1.0", lifespan=lifespan)
+app.mount("/ui", StaticFiles(directory="web", html=True), name="ui")
 
 
 class Feedback(BaseModel):
@@ -139,6 +142,45 @@ def popular(topN: int = 10, genres: Optional[str] = None) -> List[dict]:
         df = df.groupby(["movieId", "title", "genres", "year"], as_index=False)["pop_score"].max()
     df = df.sort_values("pop_score", ascending=False).head(topN)
     return df.to_dict(orient="records")
+
+
+@app.get("/genres")
+def list_genres() -> List[str]:
+    movies = app.state.movies
+    if movies.empty:
+        return []
+    # Split pipe-delimited genres if present, else single token
+    def split_genres(s: str) -> list[str]:
+        if not isinstance(s, str):
+            return []
+        return [g.strip() for g in s.replace("|", ",").split(",") if g.strip()]
+
+    all_genres: set[str] = set()
+    for g in movies["genres"].dropna().tolist():
+        for token in split_genres(g):
+            all_genres.add(token)
+    return sorted(all_genres)
+
+
+@app.get("/movies")
+def browse_movies(topN: int = 50, genres: Optional[str] = None, year_from: Optional[int] = None, year_to: Optional[int] = None) -> List[dict]:
+    movies = app.state.movies
+    if movies.empty:
+        return []
+    df = movies.copy()
+    if genres:
+        glist = {g.strip() for g in genres.split(",") if g.strip()}
+        df = df[df["genres"].fillna("").apply(lambda s: any(g in s for g in glist))]
+    if year_from is not None:
+        df = df[df["year"].fillna(0) >= year_from]
+    if year_to is not None:
+        df = df[df["year"].fillna(9999) <= year_to]
+    # If popularity is available, rank by it; else leave arbitrary
+    pop = app.state.popularity
+    if not pop.empty and "pop_score" in pop.columns:
+        pop_small = pop[["movieId", "pop_score"]]
+        df = df.merge(pop_small, on="movieId", how="left").sort_values("pop_score", ascending=False)
+    return df.head(topN).to_dict(orient="records")
 
 
 @app.post("/feedback")
