@@ -220,6 +220,23 @@ curl "http://localhost:8000/popular?topN=10&genres=Horror"
 curl -X POST "http://localhost:8000/feedback" -H "Content-Type: application/json" -d '{"userId":"1","movieId":"194434","action":"click"}'
 ```
 
+### Web UI (Netflix-style)
+
+Serve a simple, user‑friendly UI at `/ui`:
+
+```
+# Ensure artifacts exist under outputs/ and are referenced by the API
+$env:PRECOMPUTE_DIR = (Resolve-Path .\outputs).Path    # PowerShell
+python -m uvicorn api.main:app --reload --port 8000
+```
+
+Then open http://127.0.0.1:8000/ui
+
+What you get:
+- Top 50 all‑time (from `/popular`)
+- Genre chips with top picks (from `/genres` + `/popular?genres=...`)
+- Personalized row: enter `userId` and optional filters to fetch `/recommendations/user/{user_id}`
+
 ## Usage (Local Mode)
 
 Run the pipeline in a single JVM (no executors):
