@@ -206,6 +206,44 @@ def browse_movies(topN: int = 50, genres: Optional[str] = None, year_from: Optio
     return df.head(topN).to_dict(orient="records")
 
 
+@app.get("/posters")
+def posters(movieIds: str) -> dict:
+    ids = [m.strip() for m in movieIds.split(",") if m.strip()]
+    movies = app.state.movies
+    if not ids or movies.empty or not TMDB_API_KEY:
+        return {}
+    cache: dict = getattr(app.state, "poster_cache", {})
+    setattr(app.state, "poster_cache", cache)
+    out: dict[str, str] = {}
+    for mid in ids[:100]:
+        if mid in cache:
+            out[mid] = cache[mid]
+            continue
+        row = movies[movies.movieId == mid].head(1)
+        if row.empty:
+            continue
+        title = str(row.iloc[0].title)
+        year = row.iloc[0].year
+        try:
+            params = {"api_key": TMDB_API_KEY, "query": title}
+            if pd.notna(year):
+                params["year"] = int(year)
+            r = requests.get("https://api.themoviedb.org/3/search/movie", params=params, timeout=10)
+            if r.ok:
+                js = r.json()
+                results = js.get("results") or []
+                poster_path = None
+                for cand in results:
+                    if cand.get("poster_path"):
+                        poster_path = cand["poster_path"]
+                        break
+                if poster_path:
+                    url = f"https://image.tmdb.org/t/p/w342{poster_path}"
+                    cache[mid] = url
+                    out[mid] = url
+        except Exception:
+            continue
+    return out
 @app.post("/feedback")
 def feedback(fb: Feedback) -> dict:
     out_dir = os.path.join(PRECOMPUTE_DIR, "feedback")
