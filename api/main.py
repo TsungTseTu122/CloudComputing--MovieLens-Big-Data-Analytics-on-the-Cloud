@@ -276,3 +276,53 @@ def feedback(fb: Feedback) -> dict:
         f.write(json.dumps({"ts": datetime.utcnow().isoformat(), **fb.model_dump()}, ensure_ascii=False) + "\n")
     return {"status": "ok"}
 
+
+@app.get("/feedback/summary")
+def feedback_summary(userId: Optional[str] = None, topN: int = 20) -> List[dict]:
+    fb_dir = os.path.join(PRECOMPUTE_DIR, "feedback")
+    if not os.path.isdir(fb_dir):
+        return []
+    counts: dict[str, int] = {}
+    files = sorted(
+        (os.path.join(fb_dir, f) for f in os.listdir(fb_dir) if f.endswith(".jsonl")),
+        reverse=True,
+    )
+    for path in files:
+        try:
+            with open(path, "r", encoding="utf-8") as fh:
+                for line in fh:
+                    try:
+                        rec = json.loads(line)
+                    except Exception:
+                        continue
+                    if not isinstance(rec, dict):
+                        continue
+                    if userId and rec.get("userId") != userId:
+                        continue
+                    if rec.get("action") not in {"click", "like"}:
+                        continue
+                    mid = rec.get("movieId")
+                    if not isinstance(mid, str):
+                        continue
+                    counts[mid] = counts.get(mid, 0) + 1
+        except Exception:
+            continue
+        if len(counts) >= topN * 3:
+            break
+    if not counts:
+        return []
+    items = sorted(counts.items(), key=lambda x: x[1], reverse=True)[:topN]
+    movie_ids = [mid for mid, _ in items]
+    movies = app.state.movies
+    lookup = {}
+    if not movies.empty:
+        meta = movies[movies["movieId"].isin(movie_ids)][["movieId", "title", "genres", "year"]]
+        lookup = {row.movieId: {"title": row.title, "genres": row.genres, "year": int(row.year) if not pd.isna(row.year) else None} for _, row in meta.iterrows()}
+    result = []
+    for mid, cnt in items:
+        row = {"movieId": mid, "count": int(cnt)}
+        if mid in lookup:
+            row.update(lookup[mid])
+        result.append(row)
+    return result
+
