@@ -153,6 +153,22 @@ def list_genres() -> List[str]:
     movies = app.state.movies
     if movies.empty:
         return []
+    def split_genres(s: str) -> list[str]:
+        if not isinstance(s, str):
+            return []
+        return [g.strip() for g in s.replace(chr(124), ",").split(",") if g.strip()]
+    all_genres: set[str] = set()
+    for g in movies["genres"].dropna().tolist():
+        for token in split_genres(g):
+            all_genres.add(token)
+    return sorted(all_genres)
+
+
+@app.get("/genres")
+def list_genres() -> List[str]:
+    movies = app.state.movies
+    if movies.empty:
+        return []
     # Split pipe-delimited genres if present, else single token
     def split_genres(s: str) -> list[str]:
         if not isinstance(s, str):
