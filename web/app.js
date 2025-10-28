@@ -21,6 +21,9 @@ function card(node, movie) {
     p.style.backgroundImage = `url('${movie.poster}')`;
     p.textContent = '';
   }
+  el.addEventListener('mouseenter', (ev) => showTooltip(ev, movie));
+  el.addEventListener('mousemove', (ev) => showTooltip(ev, movie));
+  el.addEventListener('mouseleave', hideTooltip);
   // favorites toggle
   const favBtn = el.querySelector('.fav');
   const favs = getFavorites();
@@ -178,12 +181,21 @@ window.addEventListener('DOMContentLoaded', async () => {
   handleUserForm();
   handleBrowse();
   await loadPopular();
+  await loadMostClicked();
   await loadGenres();
   renderMyList();
   enableKeyboardScroll();
   // Restore last user
   const lastUser = localStorage.getItem('ml_user');
   if (lastUser) { $('#userId').value = lastUser; $('#current-user').textContent = lastUser; }
+  // Poster size toggle restore
+  if (localStorage.getItem('ml_size') === 'large') { document.body.classList.add('large-posters'); }
+  const sizeBtn = document.getElementById('size-toggle');
+  sizeBtn.addEventListener('click', () => {
+    document.body.classList.toggle('large-posters');
+    const isLarge = document.body.classList.contains('large-posters');
+    localStorage.setItem('ml_size', isLarge ? 'large' : 'normal');
+  });
 });
 
 // Favorites (localStorage)
@@ -250,3 +262,48 @@ function showSkeleton(row, n) {
     row.appendChild(d);
   }
 }
+
+// Most Clicked (global) and per-user
+async function loadMostClicked() {
+  const row = document.getElementById('clicked-row');
+  if (!row) return;
+  showSkeleton(row, 8);
+  try {
+    const items = await fetchJSON('/feedback/summary?topN=20');
+    const posters = await postersFor(items);
+    row.innerHTML='';
+    items.map((m) => ({...m, poster: posters[m.movieId]})).forEach((m) => card(row, m));
+  } catch { row.textContent = 'No click data yet.'; }
+}
+
+async function loadMostClickedForUser(userId) {
+  const cont = document.getElementById('continue-row'); // ensure continued loaded separately
+  try {
+    const row = document.getElementById('user-clicked-row');
+    if (!row) return;
+    showSkeleton(row, 8);
+    const items = await fetchJSON(`/feedback/summary?userId=${encodeURIComponent(userId)}&topN=20`);
+    const posters = await postersFor(items);
+    row.innerHTML='';
+    items.map((m) => ({...m, poster: posters[m.movieId]})).forEach((m) => card(row, m));
+  } catch {}
+}
+
+// Tooltip
+const tooltip = document.getElementById('tooltip');
+function showTooltip(ev, movie) {
+  if (!tooltip) return;
+  $('.tt-title', tooltip).textContent = movie.title ?? movie.movieId;
+  const bits = [];
+  if (movie.year) bits.push(movie.year);
+  if (movie.genres) bits.push(movie.genres);
+  if (movie.score != null) bits.push(`score ${Number(movie.score).toFixed(2)}`);
+  $('.tt-sub', tooltip).textContent = bits.join(' • ');
+  tooltip.hidden = false;
+  const pad = 12;
+  const x = Math.min(window.innerWidth - tooltip.offsetWidth - pad, ev.clientX + pad);
+  const y = Math.min(window.innerHeight - tooltip.offsetHeight - pad, ev.clientY + pad);
+  tooltip.style.left = x + 'px';
+  tooltip.style.top = y + 'px';
+}
+function hideTooltip() { if (tooltip) tooltip.hidden = true; }

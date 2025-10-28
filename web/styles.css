@@ -37,7 +37,7 @@ body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubunt
 .row.active { outline: 1px dashed #333; outline-offset: 2px; }
 
 /* Enhancements and layout overrides */
-.header { position: sticky; top: 0; display: grid; grid-template-columns: 1fr auto auto; gap: 16px; align-items: center; padding: 12px 20px; background: linear-gradient(180deg, rgba(0,0,0,0.6), rgba(0,0,0,0)); z-index: 5; }
+.header { position: sticky; top: 0; display: grid; grid-template-columns: 1fr auto auto auto; gap: 16px; align-items: center; padding: 12px 20px; background: linear-gradient(180deg, rgba(0,0,0,0.6), rgba(0,0,0,0)); z-index: 5; }
 .user-indicator { color: var(--muted); }
 .layout { display: grid; grid-template-columns: 220px 1fr; gap: 14px; }
 .sidebar { position: sticky; top: 56px; height: calc(100vh - 56px); overflow: auto; padding-right: 8px; }
@@ -55,3 +55,12 @@ body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubunt
 .skeleton::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(255,255,255,0.06), rgba(255,255,255,0.14), rgba(255,255,255,0.06)); animation: shimmer 1.5s infinite; }
 @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
 @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } .sidebar { display: none; } }
+
+/* Tooltip */
+.tooltip { position: fixed; max-width: 360px; background: #1b1d24; color: var(--text); border: 1px solid #2a2c34; border-radius: 8px; padding: 8px 10px; box-shadow: 0 6px 20px rgba(0,0,0,0.4); z-index: 20; pointer-events: none; }
+.tooltip .tt-title { font-weight: 700; margin-bottom: 4px; }
+.tooltip .tt-sub { color: var(--muted); font-size: 0.9rem; }
+
+/* Poster size toggle */
+.large-posters .row { grid-auto-columns: 220px; }
+.large-posters .poster { height: 140px; }

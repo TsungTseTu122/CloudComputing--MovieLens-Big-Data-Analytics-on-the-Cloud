@@ -10,6 +10,9 @@
     <header class="header">
       <div class="brand">MovieLens Recommender</div>
       <div class="user-indicator">User: <span id="current-user">Guest</span></div>
+      <div class="controls">
+        <button id="size-toggle" class="chip" title="Toggle poster size">Large Posters</button>
+      </div>
       <nav class="nav">
         <a href="#browse">Search</a>
         <a href="#top-all">Top</a>
@@ -54,6 +57,11 @@
         <div id="popular-row" class="row"></div>
       </section>
 
+      <section id="most-clicked" class="panel">
+        <h2>Most Clicked</h2>
+        <div id="clicked-row" class="row"></div>
+      </section>
+
       <section id="continue" class="panel">
         <h2>Continue Watching</h2>
         <div id="continue-row" class="row"></div>
@@ -83,6 +91,11 @@
         </div>
       </div>
     </template>
+
+    <div id="tooltip" class="tooltip" hidden>
+      <div class="tt-title"></div>
+      <div class="tt-sub"></div>
+    </div>
 
     <script src="/ui/app.js"></script>
   </body>
