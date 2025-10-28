@@ -24,6 +24,7 @@ function card(node, movie) {
   el.addEventListener('mouseenter', (ev) => showTooltip(ev, movie));
   el.addEventListener('mousemove', (ev) => showTooltip(ev, movie));
   el.addEventListener('mouseleave', hideTooltip);
+  el.addEventListener('click', () => sendFeedback('click', movie.movieId));
   // favorites toggle
   const favBtn = el.querySelector('.fav');
   const favs = getFavorites();
@@ -39,6 +40,7 @@ function card(node, movie) {
       set.add(movie.movieId);
       favBtn.classList.add('active');
       favBtn.textContent = '❤';
+      sendFeedback('list', movie.movieId);
     }
     saveFavorites(set);
     renderMyList();
@@ -295,7 +297,7 @@ async function loadMostClicked() {
   if (!row) return;
   showSkeleton(row, 8);
   try {
-    const items = await fetchJSON('/feedback/summary?topN=20');
+    const items = await fetchJSON('/feedback/summary?topN=20&window_days=30&half_life_days=14&w_click=1&w_list=3&blend_baseline=0.2');
     const posters = await postersFor(items);
     row.innerHTML='';
     items.map((m) => ({...m, poster: posters[m.movieId]})).forEach((m) => card(row, m));
@@ -333,3 +335,11 @@ function showTooltip(ev, movie) {
   tooltip.style.top = y + 'px';
 }
 function hideTooltip() { if (tooltip) tooltip.hidden = true; }
+
+// Feedback helper
+async function sendFeedback(action, movieId) {
+  try {
+    const uid = localStorage.getItem('ml_user') || 'guest';
+    await fetch('/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: uid, movieId, action }) });
+  } catch {}
+}

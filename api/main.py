@@ -1,6 +1,7 @@
 import os
 import json
-from datetime import datetime
+import time
+from datetime import datetime, timedelta
 from typing import List, Optional
 from contextlib import asynccontextmanager
 
@@ -278,17 +279,57 @@ def feedback(fb: Feedback) -> dict:
 
 
 @app.get("/feedback/summary")
-def feedback_summary(userId: Optional[str] = None, topN: int = 20, actions: Optional[str] = None) -> List[dict]:
+def feedback_summary(
+    userId: Optional[str] = None,
+    topN: int = 20,
+    window_days: int = 30,
+    half_life_days: int = 14,
+    w_click: float = 1.0,
+    w_list: float = 3.0,
+    blend_baseline: float = 0.2,
+) -> List[dict]:
     fb_dir = os.path.join(PRECOMPUTE_DIR, "feedback")
+    pop = app.state.popularity
+    # Cache with TTL 60s
+    cache_key = (userId or "__all__", int(topN), int(window_days), int(half_life_days), float(w_click), float(w_list), float(blend_baseline))
+    now = time.time()
+    cache = getattr(app.state, "pop_cache", {})
+    cached = cache.get(cache_key)
+    if cached and (now - cached[0] < 60):
+        return cached[1]
+
     if not os.path.isdir(fb_dir):
-        return []
-    counts: dict[str, int] = {}
+        # Fall back to baseline popularity
+        if pop.empty:
+            return []
+        df = pop.sort_values("pop_score", ascending=False).head(topN)
+        result = df[["movieId", "title", "genres", "year", "pop_score"]].to_dict(orient="records")
+        cache[cache_key] = (now, result)
+        setattr(app.state, "pop_cache", cache)
+        return result
+
+    cutoff = datetime.utcnow().date() - timedelta(days=max(0, int(window_days)))
     files = sorted(
         (os.path.join(fb_dir, f) for f in os.listdir(fb_dir) if f.endswith(".jsonl")),
         reverse=True,
     )
-    allowed_actions = {a.strip() for a in (actions.split(",") if actions else ["click", "like"]) if a.strip()}
-    for path in files:
+    candidates: list[str] = []
+    for p in files:
+        name = os.path.splitext(os.path.basename(p))[0]
+        if len(name) == 10:
+            try:
+                fdate = datetime.strptime(name, "%Y-%m-%d").date()
+                if fdate >= cutoff:
+                    candidates.append(p)
+            except Exception:
+                continue
+    if not candidates:
+        candidates = files[:5]
+
+    decay_half = max(1, int(half_life_days))
+    weights = {"click": float(w_click), "list": float(w_list)}
+    scores: dict[str, float] = {}
+    for path in candidates:
         try:
             with open(path, "r", encoding="utf-8") as fh:
                 for line in fh:
@@ -300,30 +341,74 @@ def feedback_summary(userId: Optional[str] = None, topN: int = 20, actions: Opti
                         continue
                     if userId and rec.get("userId") != userId:
                         continue
-                    if rec.get("action") not in allowed_actions:
+                    act = rec.get("action")
+                    if act not in weights:
                         continue
                     mid = rec.get("movieId")
                     if not isinstance(mid, str):
                         continue
-                    counts[mid] = counts.get(mid, 0) + 1
+                    # Age days based on timestamp if present
+                    age_days = 0.0
+                    ts = rec.get("ts")
+                    try:
+                        if isinstance(ts, str):
+                            # tolerate Z suffix and fractional secs
+                            tstr = ts.replace("Z", "+00:00").split(".")[0]
+                            age_days = (datetime.utcnow() - datetime.fromisoformat(tstr)).total_seconds() / 86400.0
+                    except Exception:
+                        age_days = 0.0
+                    decay = 2 ** (-(age_days / float(decay_half)))
+                    scores[mid] = scores.get(mid, 0.0) + weights[act] * decay
         except Exception:
             continue
-        if len(counts) >= topN * 3:
-            break
-    if not counts:
-        return []
-    items = sorted(counts.items(), key=lambda x: x[1], reverse=True)[:topN]
-    movie_ids = [mid for mid, _ in items]
+
+    # Normalize trending
+    trend_norm: dict[str, float]
+    if scores:
+        vals = list(scores.values())
+        vmin, vmax = min(vals), max(vals)
+        denom = (vmax - vmin) if vmax > vmin else 1.0
+        trend_norm = {k: (v - vmin) / denom for k, v in scores.items()}
+    else:
+        trend_norm = {}
+
+    # Baseline normalization
+    base_norm: dict[str, float] = {}
+    if not pop.empty and "pop_score" in pop.columns:
+        bmin = float(pop["pop_score"].min())
+        bmax = float(pop["pop_score"].max())
+        bden = (bmax - bmin) if bmax != bmin else 1.0
+        for _, row in pop[["movieId", "pop_score"]].iterrows():
+            base_norm[str(row.movieId)] = float((row.pop_score - bmin) / bden)
+
+    beta = max(0.0, min(1.0, float(blend_baseline)))
+    combined: dict[str, float] = {}
+    keys = set(trend_norm) | set(base_norm)
+    if not keys and not pop.empty:
+        df = pop.sort_values("pop_score", ascending=False).head(topN)
+        result = df[["movieId", "title", "genres", "year", "pop_score"]].to_dict(orient="records")
+        cache[cache_key] = (now, result)
+        setattr(app.state, "pop_cache", cache)
+        return result
+    for k in keys:
+        t = trend_norm.get(k, 0.0)
+        b = base_norm.get(k, 0.0)
+        combined[k] = (1.0 - beta) * t + beta * b
+
+    top = sorted(combined.items(), key=lambda x: x[1], reverse=True)[:topN]
+    movie_ids = [mid for mid, _ in top]
     movies = app.state.movies
     lookup = {}
     if not movies.empty:
         meta = movies[movies["movieId"].isin(movie_ids)][["movieId", "title", "genres", "year"]]
         lookup = {row.movieId: {"title": row.title, "genres": row.genres, "year": int(row.year) if not pd.isna(row.year) else None} for _, row in meta.iterrows()}
     result = []
-    for mid, cnt in items:
-        row = {"movieId": mid, "count": int(cnt)}
+    for mid, score in top:
+        row = {"movieId": mid, "score": float(score)}
         if mid in lookup:
             row.update(lookup[mid])
         result.append(row)
+    cache[cache_key] = (now, result)
+    setattr(app.state, "pop_cache", cache)
     return result
 
