@@ -278,7 +278,7 @@ def feedback(fb: Feedback) -> dict:
 
 
 @app.get("/feedback/summary")
-def feedback_summary(userId: Optional[str] = None, topN: int = 20) -> List[dict]:
+def feedback_summary(userId: Optional[str] = None, topN: int = 20, actions: Optional[str] = None) -> List[dict]:
     fb_dir = os.path.join(PRECOMPUTE_DIR, "feedback")
     if not os.path.isdir(fb_dir):
         return []
@@ -287,6 +287,7 @@ def feedback_summary(userId: Optional[str] = None, topN: int = 20) -> List[dict]
         (os.path.join(fb_dir, f) for f in os.listdir(fb_dir) if f.endswith(".jsonl")),
         reverse=True,
     )
+    allowed_actions = {a.strip() for a in (actions.split(",") if actions else ["click", "like"]) if a.strip()}
     for path in files:
         try:
             with open(path, "r", encoding="utf-8") as fh:
@@ -299,7 +300,7 @@ def feedback_summary(userId: Optional[str] = None, topN: int = 20) -> List[dict]
                         continue
                     if userId and rec.get("userId") != userId:
                         continue
-                    if rec.get("action") not in {"click", "like"}:
+                    if rec.get("action") not in allowed_actions:
                         continue
                     mid = rec.get("movieId")
                     if not isinstance(mid, str):
