@@ -24,7 +24,7 @@ function card(node, movie) {
   el.addEventListener('mouseenter', (ev) => showTooltip(ev, movie));
   el.addEventListener('mousemove', (ev) => showTooltip(ev, movie));
   el.addEventListener('mouseleave', hideTooltip);
-  el.addEventListener('click', () => sendFeedback('click', movie.movieId));
+  // Click feedback disabled to keep focus on list (wishlist) only
   // favorites toggle
   const favBtn = el.querySelector('.fav');
   const favs = getFavorites();
@@ -113,6 +113,19 @@ async function loadGenres() {
   }
 }
 
+async function initUsersSelect() {
+  const sel = document.getElementById('userSel');
+  if (!sel) return;
+  try {
+    const users = await fetchJSON('/users?limit=500');
+    users.forEach(u => {
+      const opt = document.createElement('option');
+      opt.value = u; opt.textContent = u;
+      sel.appendChild(opt);
+    });
+  } catch {}
+}
+
 async function renderGenre(genre) {
   const rows = $('#genre-rows');
   rows.innerHTML = '';
@@ -137,25 +150,24 @@ async function handleUserForm() {
   const form = $('#user-form');
   form.addEventListener('submit', async (ev) => {
     ev.preventDefault();
-    const userId = $('#userId').value.trim();
+    const userSel = document.getElementById('userSel');
+    const userId = userSel ? String(userSel.value || '').trim() : '';
     const topN = Number($('#topN').value || 20);
     const genres = $('#genres').value.trim();
     const yearFrom = $('#yearFrom').value.trim();
     const yearTo = $('#yearTo').value.trim();
     const row = $('#user-row');
-    $('#current-user').textContent = userId || 'Guest';
+    $('#current-user').textContent = userId || 'Filters only';
     localStorage.setItem('ml_user', userId || '');
     showSkeleton(row, 8);
-    if (!userId) {
-      row.textContent = 'Enter a userId to see personalized recommendations';
-      return;
-    }
     const params = new URLSearchParams({ topN: String(topN) });
     if (genres) params.set('genres', genres);
     if (yearFrom) params.set('year_from', yearFrom);
     if (yearTo) params.set('year_to', yearTo);
     try {
-      const data = await fetchJSON(`/recommendations/user/${encodeURIComponent(userId)}?${params}`);
+      const data = userId
+        ? await fetchJSON(`/recommendations/user/${encodeURIComponent(userId)}?${params}`)
+        : await fetchJSON(`/popular?${params}`);
       const posters = await postersFor(data.slice(0, 12));
       const withPosters = data.map((m) => ({...m, poster: posters[m.movieId]}));
       if (!withPosters.length) {
@@ -163,8 +175,7 @@ async function handleUserForm() {
       } else {
         withPosters.forEach((m) => card(row, m));
       }
-      // Continue Watching
-      await renderContinue(userId);
+      // no continue-watching UI
     } catch (e) {
       row.textContent = 'Failed to load recommendations';
     }
@@ -202,6 +213,7 @@ function handleBrowse() {
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
+  await initUsersSelect();
   handleUserForm();
   initUserFilters();
   handleBrowse();
@@ -212,7 +224,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   enableKeyboardScroll();
   // Restore last user
   const lastUser = localStorage.getItem('ml_user');
-  if (lastUser) { $('#userId').value = lastUser; $('#current-user').textContent = lastUser; }
+  if (lastUser && $('#userSel')) { $('#userSel').value = lastUser; $('#current-user').textContent = lastUser; }
   // View mode toggle: posters/list
   const savedMode = localStorage.getItem('ml_mode');
   if (savedMode === 'list') { document.body.classList.add('list-mode'); }

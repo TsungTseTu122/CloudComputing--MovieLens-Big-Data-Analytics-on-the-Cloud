@@ -34,9 +34,11 @@
         <div id="browse-row" class="row"></div>
       </section>
       <section id="user" class="panel">
-        <h2>Personalized Recommendations</h2>
+        <h2>Recommendations</h2>
         <form id="user-form" class="user-form">
-          <input id="userId" type="text" placeholder="Enter userId (e.g., 1)" />
+          <select id="userSel" title="Choose a user (optional)">
+            <option value="">Filters only</option>
+          </select>
           <input id="topN" type="number" min="1" max="100" value="20" />
           <input id="genres" type="text" placeholder="Genres filter (optional, comma-separated)" />
           <input id="yearFrom" type="number" placeholder="Year from" />
@@ -62,10 +64,7 @@
         <div id="clicked-row" class="row"></div>
       </section>
 
-      <section id="continue" class="panel">
-        <h2>Continue Watching</h2>
-        <div id="continue-row" class="row"></div>
-      </section>
+      
 
       <section id="mylist" class="panel">
         <h2>My List</h2>

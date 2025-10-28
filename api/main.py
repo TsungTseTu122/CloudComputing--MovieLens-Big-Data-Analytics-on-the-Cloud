@@ -239,6 +239,17 @@ def movies_by_ids(movieIds: str) -> List[dict]:
     return df.to_dict(orient="records")
 
 
+@app.get("/users")
+def list_users(limit: int = 200) -> List[str]:
+    """Return a sample of user IDs present in user_topn artifacts."""
+    df = app.state.user_topn
+    if df.empty or "userId" not in df.columns:
+        return []
+    users = df["userId"].dropna().astype(str).unique().tolist()
+    users.sort()
+    return users[: max(0, int(limit))]
+
+
 @app.get("/history")
 def history(userId: Optional[str] = None, topN: int = 20) -> List[dict]:
     fb_dir = os.path.join(PRECOMPUTE_DIR, "feedback")
