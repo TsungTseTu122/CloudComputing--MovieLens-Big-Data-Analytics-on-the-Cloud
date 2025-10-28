@@ -154,7 +154,7 @@ async function handleUserForm() {
     if (yearTo) params.set('year_to', yearTo);
     try {
       const data = await fetchJSON(`/recommendations/user/${encodeURIComponent(userId)}?${params}`);
-      const posters = await postersFor(data);
+      const posters = await postersFor(data.slice(0, 12));
       const withPosters = data.map((m) => ({...m, poster: posters[m.movieId]}));
       if (!withPosters.length) {
         row.textContent = 'No recommendations found for this user.';
