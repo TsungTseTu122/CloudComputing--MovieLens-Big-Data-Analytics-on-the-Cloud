@@ -203,6 +203,7 @@ function handleBrowse() {
 
 window.addEventListener('DOMContentLoaded', async () => {
   handleUserForm();
+  initUserFilters();
   handleBrowse();
   await loadPopular();
   await loadMostClicked();

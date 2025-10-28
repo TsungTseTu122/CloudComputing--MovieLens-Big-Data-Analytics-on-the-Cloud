@@ -284,8 +284,8 @@ def feedback_summary(
     topN: int = 20,
     window_days: int = 30,
     half_life_days: int = 14,
-    w_click: float = 1.0,
-    w_list: float = 3.0,
+    w_click: float = 0.0,
+    w_list: float = 1.0,
     blend_baseline: float = 0.2,
 ) -> List[dict]:
     fb_dir = os.path.join(PRECOMPUTE_DIR, "feedback")
