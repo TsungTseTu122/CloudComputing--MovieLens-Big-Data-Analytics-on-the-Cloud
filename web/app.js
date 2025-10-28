@@ -58,6 +58,7 @@ async function loadPopular() {
   try {
     const data = await fetchJSON('/popular?topN=50');
     const posters = await postersFor(data);
+    row.innerHTML = '';
     data.map((m) => ({...m, poster: posters[m.movieId]})).forEach((m) => card(row, m));
   } catch (e) {
     row.textContent = 'Failed to load popular titles';
@@ -84,6 +85,27 @@ async function loadGenres() {
       list.appendChild(b);
     });
     if (top.length) renderGenre(top[0]);
+    // Populate sidebar genres
+    const side = document.getElementById('side-genres');
+    if (side) {
+      side.innerHTML = '';
+      genres.forEach((g) => {
+        const a = document.createElement('a');
+        a.href = '#genres';
+        a.className = 'side-link';
+        a.textContent = g;
+        a.onclick = (ev) => { ev.preventDefault(); renderGenre(g); document.getElementById('genres').scrollIntoView({ behavior: 'smooth' }); };
+        side.appendChild(a);
+      });
+      const title = document.getElementById('side-genres-title');
+      if (title) {
+        title.style.cursor = 'pointer';
+        title.onclick = () => {
+          side.classList.toggle('collapsed');
+          title.textContent = side.classList.contains('collapsed') ? 'Genres ▸' : 'Genres ▾';
+        };
+      }
+    }
   } catch (e) {
     list.textContent = 'No genres available';
   }
@@ -188,13 +210,17 @@ window.addEventListener('DOMContentLoaded', async () => {
   // Restore last user
   const lastUser = localStorage.getItem('ml_user');
   if (lastUser) { $('#userId').value = lastUser; $('#current-user').textContent = lastUser; }
-  // Poster size toggle restore
-  if (localStorage.getItem('ml_size') === 'large') { document.body.classList.add('large-posters'); }
-  const sizeBtn = document.getElementById('size-toggle');
-  sizeBtn.addEventListener('click', () => {
-    document.body.classList.toggle('large-posters');
-    const isLarge = document.body.classList.contains('large-posters');
-    localStorage.setItem('ml_size', isLarge ? 'large' : 'normal');
+  // View mode toggle: posters/list
+  const savedMode = localStorage.getItem('ml_mode');
+  if (savedMode === 'list') { document.body.classList.add('list-mode'); }
+  const modeBtn = document.getElementById('mode-toggle');
+  const syncIcon = () => { modeBtn.textContent = document.body.classList.contains('list-mode') ? '📄' : '🖼️'; };
+  syncIcon();
+  modeBtn.addEventListener('click', () => {
+    document.body.classList.toggle('list-mode');
+    const isList = document.body.classList.contains('list-mode');
+    localStorage.setItem('ml_mode', isList ? 'list' : 'posters');
+    syncIcon();
   });
 });
 

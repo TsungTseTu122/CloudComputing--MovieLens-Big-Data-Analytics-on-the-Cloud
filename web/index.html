@@ -3,22 +3,21 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>MovieLens Recommender UI</title>
+    <title>MovieRecommand</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/ui/styles.css" />
   </head>
   <body>
     <header class="header">
-      <div class="brand">MovieLens Recommender</div>
+      <div class="brand">MovieRecommand</div>
       <div class="user-indicator">User: <span id="current-user">Guest</span></div>
       <div class="controls">
-        <button id="size-toggle" class="chip" title="Toggle poster size">Large Posters</button>
+        <button id="mode-toggle" class="chip" title="Toggle posters/list" aria-label="Toggle posters/list">🖼️</button>
+        <button id="settings-btn" class="chip" title="Settings" aria-label="Settings">⚙️</button>
+        <button id="auth-btn" class="chip" title="Login/Logout" aria-label="Login/Logout">🔐</button>
       </div>
-      <nav class="nav">
-        <a href="#browse">Search</a>
-        <a href="#top-all">Top</a>
-        <a href="#genres">Genres</a>
-        <a href="#user">For You</a>
-      </nav>
     </header>
 
     <main class="container layout">
@@ -28,7 +27,7 @@
         <a class="side-link" href="#top-all">Top All Time</a>
         <a class="side-link" href="#continue">Continue Watching</a>
         <a class="side-link" href="#mylist">My List</a>
-        <div class="side-title">Genres</div>
+        <div class="side-title" id="side-genres-title">Genres ▾</div>
         <div id="side-genres" class="side-genres"></div>
       </aside>
       <div class="main">
@@ -58,7 +57,7 @@
       </section>
 
       <section id="most-clicked" class="panel">
-        <h2>Most Clicked</h2>
+        <h2>Most Popular</h2>
         <div id="clicked-row" class="row"></div>
       </section>
 
