@@ -36,6 +36,10 @@ body { margin: 0; font-family: Montserrat, system-ui, -apple-system, Segoe UI, R
 .user-form button { background: var(--accent); border: none; cursor: pointer; }
 .row.active { outline: 1px dashed #333; outline-offset: 2px; }
 .subtitle { color: var(--muted); font-size: 0.85rem; margin: 6px 0 4px; }
+.topn-control { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; }
+.topn-control .chips { overflow-x: auto; }
+.topn-control .chip { min-width: 42px; text-align: center; }
+.empty-center { display: flex; align-items: center; justify-content: center; min-height: 72px; color: var(--muted); }
 
 /* Enhancements and layout overrides */
 .header { position: sticky; top: 0; display: grid; grid-template-columns: 1fr auto auto auto; gap: 16px; align-items: center; padding: 12px 20px; background: linear-gradient(180deg, rgba(0,0,0,0.6), rgba(0,0,0,0)); z-index: 5; }

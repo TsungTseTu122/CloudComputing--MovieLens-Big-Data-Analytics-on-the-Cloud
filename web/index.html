@@ -12,7 +12,11 @@
   <body>
     <header class="header">
       <div class="brand">MovieRecommand</div>
-      <div class="user-indicator">User: <span id="current-user">Guest</span></div>
+      <div class="user-indicator">User:
+        <select id="userSelHeader" title="Choose user">
+          <option value="">Filters only</option>
+        </select>
+      </div>
       <div class="controls">
         <button id="mode-toggle" class="chip" title="Toggle posters/list" aria-label="Toggle posters/list">🖼️</button>
         <button id="settings-btn" class="chip" title="Settings" aria-label="Settings">⚙️</button>
@@ -36,10 +40,12 @@
       <section id="user" class="panel">
         <h2>Recommendations</h2>
         <form id="user-form" class="user-form">
-          <select id="userSel" title="Choose a user (optional)">
-            <option value="">Filters only</option>
-          </select>
-          <input id="topN" type="number" min="1" max="100" value="20" />
+          <input id="topN" type="hidden" value="20" />
+          <div class="topn-control">
+            <button type="button" id="topn-left" class="chip" aria-label="Decrease">◀</button>
+            <div id="topn-chips" class="chips"></div>
+            <button type="button" id="topn-right" class="chip" aria-label="Increase">▶</button>
+          </div>
           <input id="genres" type="text" placeholder="Genres filter (optional, comma-separated)" />
           <input id="yearFrom" type="number" placeholder="Year from" />
           <input id="yearTo" type="number" placeholder="Year to" />

@@ -73,7 +73,9 @@ async function loadGenres() {
   const rows = $('#genre-rows');
   rows.innerHTML = '';
   try {
-    const genres = await fetchJSON('/genres');
+    const gsrc = await fetchJSON('/genres');
+    const genres = Array.isArray(gsrc) ? gsrc.slice() : [];
+    if (!genres.includes('No genre listed')) genres.push('No genre listed');
     const top = genres.slice(0, 10);
     top.forEach((g, i) => {
       const b = document.createElement('button');
@@ -114,15 +116,24 @@ async function loadGenres() {
 }
 
 async function initUsersSelect() {
-  const sel = document.getElementById('userSel');
-  if (!sel) return;
+  const headerSel = document.getElementById('userSelHeader');
+  const formSel = document.getElementById('userSel');
+  const targets = [headerSel, formSel].filter(Boolean);
+  if (targets.length === 0) return;
   try {
     const users = await fetchJSON('/users?limit=500');
-    users.forEach(u => {
-      const opt = document.createElement('option');
-      opt.value = u; opt.textContent = u;
-      sel.appendChild(opt);
+    targets.forEach(sel => {
+      users.forEach(u => {
+        const opt = document.createElement('option');
+        opt.value = u; opt.textContent = u;
+        sel.appendChild(opt);
+      });
     });
+    // keep header and (optional) form select in sync
+    if (headerSel && formSel) {
+      headerSel.addEventListener('change', () => { formSel.value = headerSel.value; });
+      formSel.addEventListener('change', () => { headerSel.value = formSel.value; });
+    }
   } catch {}
 }
 
@@ -150,14 +161,13 @@ async function handleUserForm() {
   const form = $('#user-form');
   form.addEventListener('submit', async (ev) => {
     ev.preventDefault();
-    const userSel = document.getElementById('userSel');
+    const userSel = document.getElementById('userSelHeader');
     const userId = userSel ? String(userSel.value || '').trim() : '';
     const topN = Number($('#topN').value || 20);
     const genres = $('#genres').value.trim();
     const yearFrom = $('#yearFrom').value.trim();
     const yearTo = $('#yearTo').value.trim();
     const row = $('#user-row');
-    $('#current-user').textContent = userId || 'Filters only';
     localStorage.setItem('ml_user', userId || '');
     showSkeleton(row, 8);
     const params = new URLSearchParams({ topN: String(topN) });
@@ -198,7 +208,9 @@ async function initUserFilters() {
   const box = document.getElementById('user-genres');
   if (box) {
     try {
-      const genres = await fetchJSON('/genres');
+      const gsrc = await fetchJSON('/genres');
+      const genres = Array.isArray(gsrc) ? gsrc.slice() : [];
+      if (!genres.includes('No genre listed')) genres.push('No genre listed');
       const picked = new Set();
       genres.slice(0, 20).forEach((g) => {
         const b = document.createElement('button');
@@ -277,7 +289,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   enableKeyboardScroll();
   // Restore last user
   const lastUser = localStorage.getItem('ml_user');
-  if (lastUser && $('#userSel')) { $('#userSel').value = lastUser; $('#current-user').textContent = lastUser; }
+  if (lastUser && $('#userSelHeader')) { $('#userSelHeader').value = lastUser; }
   // View mode toggle: posters/list
   const savedMode = localStorage.getItem('ml_mode');
   if (savedMode === 'list') { document.body.classList.add('list-mode'); }
@@ -290,6 +302,8 @@ window.addEventListener('DOMContentLoaded', async () => {
     localStorage.setItem('ml_mode', isList ? 'list' : 'posters');
     syncIcon();
   });
+  // TopN control
+  initTopN();
 });
 
 // Favorites (localStorage)
@@ -305,7 +319,7 @@ async function renderMyList() {
   if (!row) return;
   row.innerHTML = '';
   const ids = Array.from(getFavorites());
-  if (!ids.length) { row.textContent = 'Add titles with the heart to build your list.'; return; }
+  if (!ids.length) { const d = document.createElement('div'); d.className='empty-center'; d.textContent='Add titles with the heart to build your list.'; row.appendChild(d); return; }
   try {
     const items = await fetchJSON(`/movies/by_ids?movieIds=${encodeURIComponent(ids.join(','))}`);
     const posters = await postersFor(items);
@@ -324,6 +338,28 @@ function enableKeyboardScroll() {
     const dx = e.key === 'ArrowRight' ? 300 : -300;
     active.scrollBy({ left: dx, behavior: 'smooth' });
   });
+}
+
+// TopN chips + arrows
+function initTopN() {
+  const chipsBox = document.getElementById('topn-chips');
+  const left = document.getElementById('topn-left');
+  const right = document.getElementById('topn-right');
+  const hidden = document.getElementById('topN');
+  if (!chipsBox || !left || !right || !hidden) return;
+  const values = [5,10,15,20];
+  let idx = Math.max(0, values.indexOf(Number(hidden.value) || 20));
+  function render() {
+    chipsBox.innerHTML='';
+    values.forEach((v,i)=>{
+      const b=document.createElement('button'); b.type='button'; b.className='chip'+(i===idx?' active':''); b.textContent=String(v);
+      b.onclick=()=>{ idx=i; hidden.value=String(values[idx]); render(); };
+      chipsBox.appendChild(b);
+    });
+  }
+  left.onclick = () => { idx = Math.max(0, idx-1); hidden.value=String(values[idx]); render(); };
+  right.onclick = () => { idx = Math.min(values.length-1, idx+1); hidden.value=String(values[idx]); render(); };
+  render();
 }
 
 // Continue Watching

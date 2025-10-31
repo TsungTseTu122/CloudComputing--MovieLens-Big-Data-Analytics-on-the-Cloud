@@ -91,7 +91,15 @@ def recs_for_user(
     out = df[df.userId == user_id]
     if genres:
         glist = {g.strip() for g in genres.split(",") if g.strip()}
-        out = out[out["genres"].fillna("").apply(lambda s: any(g in s for g in glist))]
+        special = {g.lower() for g in glist}
+        wants_none = any(t in {"no genre listed", "none", "_none_"} for t in special)
+        plain = {g for g in glist if g.lower() not in {"no genre listed", "none", "_none_"}}
+        mask = False
+        if plain:
+            mask = out["genres"].fillna("").apply(lambda s: any(g in s for g in plain))
+        if wants_none:
+            mask = mask | out["genres"].isna() | (out["genres"].astype(str).str.strip() == "")
+        out = out[mask]
     if year_from is not None:
         out = out[out["year"].fillna(0) >= year_from]
     if year_to is not None:
@@ -138,7 +146,15 @@ def popular(topN: int = 10, genres: Optional[str] = None) -> List[dict]:
     df = pop.copy()
     if genres:
         glist = {g.strip() for g in genres.split(",") if g.strip()}
-        df = df[df["genres"].fillna("").apply(lambda s: any(g in s for g in glist))]
+        special = {g.lower() for g in glist}
+        wants_none = any(t in {"no genre listed", "none", "_none_"} for t in special)
+        plain = {g for g in glist if g.lower() not in {"no genre listed", "none", "_none_"}}
+        mask = False
+        if plain:
+            mask = df["genres"].fillna("").apply(lambda s: any(g in s for g in plain))
+        if wants_none:
+            mask = mask | df["genres"].isna() | (df["genres"].astype(str).str.strip() == "")
+        df = df[mask]
     else:
         # Aggregate to global popularity by movieId
         df = df.groupby(["movieId", "title", "genres", "year"], as_index=False)["pop_score"].max()
