@@ -192,6 +192,59 @@ async function postersFor(items) {
   }
 }
 
+// Build genre chips and year preset chips under the Recommendations panel
+async function initUserFilters() {
+  // Genre chips populate the hidden text input #genres for compatibility
+  const box = document.getElementById('user-genres');
+  if (box) {
+    try {
+      const genres = await fetchJSON('/genres');
+      const picked = new Set();
+      genres.slice(0, 20).forEach((g) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'chip';
+        b.textContent = g;
+        b.onclick = () => {
+          if (picked.has(g)) { picked.delete(g); b.classList.remove('active'); }
+          else { picked.add(g); b.classList.add('active'); }
+          const inp = document.getElementById('genres');
+          if (inp) inp.value = Array.from(picked).join(', ');
+        };
+        box.appendChild(b);
+      });
+    } catch {
+      // ignore
+    }
+  }
+
+  // Year preset chips write to #yearFrom and #yearTo inputs
+  const yp = document.getElementById('year-presets');
+  if (yp) {
+    const presets = [
+      {label: '1980s', from: 1980, to: 1989},
+      {label: '1990s', from: 1990, to: 1999},
+      {label: '2000s', from: 2000, to: 2009},
+      {label: '2010s', from: 2010, to: 2019},
+      {label: '2020s', from: 2020, to: 2029},
+      {label: 'All', from: '', to: ''},
+    ];
+    presets.forEach((p) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chip';
+      b.textContent = p.label;
+      b.onclick = () => {
+        const yf = document.getElementById('yearFrom');
+        const yt = document.getElementById('yearTo');
+        if (yf) yf.value = p.from;
+        if (yt) yt.value = p.to;
+      };
+      yp.appendChild(b);
+    });
+  }
+}
+
 function handleBrowse() {
   const form = $('#browse-form');
   form.addEventListener('submit', async (ev) => {
