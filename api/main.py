@@ -279,7 +279,14 @@ def list_users(limit: int = 200) -> List[str]:
     if df.empty or "userId" not in df.columns:
         return []
     users = df["userId"].dropna().astype(str).unique().tolist()
-    users.sort()
+    # Sort numerically when possible, lexicographically otherwise (numeric first)
+    def sort_key(u: str):
+        s = u.strip()
+        if s.isdigit():
+            return (0, int(s), s)
+        # attempt int-like (e.g., '0012') handled by isdigit(); for mixed tokens keep lexical
+        return (1, float('inf'), s)
+    users.sort(key=sort_key)
     return users[: max(0, int(limit))]
 
 

@@ -124,7 +124,16 @@ async function initUsersSelect() {
   const targets = [headerSel, formSel].filter(Boolean);
   if (targets.length === 0) return;
   try {
-    const users = await fetchJSON('/users?limit=500');
+    let users = await fetchJSON('/users?limit=500');
+    // Defensive sort: numeric ascending when possible
+    users = (Array.isArray(users) ? users : []).slice().sort((a,b) => {
+      const sa=String(a).trim(), sb=String(b).trim();
+      const da=/^\d+$/.test(sa), db=/^\d+$/.test(sb);
+      if (da && db) return Number(sa) - Number(sb);
+      if (da && !db) return -1;
+      if (!da && db) return 1;
+      return sa.localeCompare(sb);
+    });
     targets.forEach(sel => {
       users.forEach(u => {
         const opt = document.createElement('option');
