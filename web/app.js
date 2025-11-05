@@ -74,8 +74,9 @@ async function loadGenres() {
   rows.innerHTML = '';
   try {
     const gsrc = await fetchJSON('/genres');
-    const genres = Array.isArray(gsrc) ? gsrc.slice() : [];
-    if (!genres.includes('No genre listed')) genres.push('No genre listed');
+    let genres = Array.isArray(gsrc) ? gsrc.slice() : [];
+    genres = genres.filter(g => g.toLowerCase() !== 'no genre listed' && g.toLowerCase() !== '(genres not listed)');
+    genres.push('(genres not listed)');
     const top = genres.slice(0, 10);
     top.forEach((g, i) => {
       const b = document.createElement('button');
@@ -95,10 +96,9 @@ async function loadGenres() {
       side.innerHTML = '';
       genres.forEach((g) => {
         const a = document.createElement('a');
-        a.href = '#genres';
+        a.href = `/ui/genre.html?g=${encodeURIComponent(g)}`;
         a.className = 'side-link';
         a.textContent = g;
-        a.onclick = (ev) => { ev.preventDefault(); renderGenre(g); document.getElementById('genres').scrollIntoView({ behavior: 'smooth' }); };
         side.appendChild(a);
       });
       const title = document.getElementById('side-genres-title');
@@ -209,8 +209,9 @@ async function initUserFilters() {
   if (box) {
     try {
       const gsrc = await fetchJSON('/genres');
-      const genres = Array.isArray(gsrc) ? gsrc.slice() : [];
-      if (!genres.includes('No genre listed')) genres.push('No genre listed');
+      let genres = Array.isArray(gsrc) ? gsrc.slice() : [];
+      genres = genres.filter(g => g.toLowerCase() !== 'no genre listed' && g.toLowerCase() !== '(genres not listed)');
+      genres.push('(genres not listed)');
       const picked = new Set();
       genres.slice(0, 20).forEach((g) => {
         const b = document.createElement('button');

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Genre</title>
+    <link rel="stylesheet" href="/ui/styles.css" />
+  </head>
+  <body>
+    <header class="header">
+      <div class="brand"><a href="/ui/" style="text-decoration:none;color:inherit">MovieRecommand</a></div>
+      <div class="user-indicator"></div>
+      <div class="controls"></div>
+    </header>
+    <main class="container">
+      <section class="panel">
+        <h2 id="genre-title">Genre</h2>
+        <div id="genre-row" class="row"></div>
+      </section>
+    </main>
+    <template id="card-template">
+      <div class="card">
+        <div class="poster">🎬</div>
+        <div class="badge" hidden>★ 0.00</div>
+        <button class="fav" title="Add to My List">♡</button>
+        <div class="meta">
+          <div class="title"></div>
+          <div class="sub"></div>
+        </div>
+      </div>
+    </template>
+    <script src="/ui/genre.js"></script>
+  </body>
+  </html>
+

@@ -92,7 +92,10 @@ def recs_for_user(
     if genres:
         glist = {g.strip() for g in genres.split(",") if g.strip()}
         special = {g.lower() for g in glist}
-        wants_none = any(t in {"no genre listed", "none", "_none_"} for t in special)
+        wants_none = any(
+            t in {"no genre listed", "none", "_none_", "(genres not listed)", "genres not listed"}
+            for t in special
+        )
         plain = {g for g in glist if g.lower() not in {"no genre listed", "none", "_none_"}}
         mask = False
         if plain:
@@ -147,7 +150,10 @@ def popular(topN: int = 10, genres: Optional[str] = None) -> List[dict]:
     if genres:
         glist = {g.strip() for g in genres.split(",") if g.strip()}
         special = {g.lower() for g in glist}
-        wants_none = any(t in {"no genre listed", "none", "_none_"} for t in special)
+        wants_none = any(
+            t in {"no genre listed", "none", "_none_", "(genres not listed)", "genres not listed"}
+            for t in special
+        )
         plain = {g for g in glist if g.lower() not in {"no genre listed", "none", "_none_"}}
         mask = False
         if plain:
