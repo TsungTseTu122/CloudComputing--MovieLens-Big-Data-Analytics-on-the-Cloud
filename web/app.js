@@ -75,8 +75,11 @@ async function loadGenres() {
   try {
     const gsrc = await fetchJSON('/genres');
     let genres = Array.isArray(gsrc) ? gsrc.slice() : [];
-    genres = genres.filter(g => g.toLowerCase() !== 'no genre listed' && g.toLowerCase() !== '(genres not listed)');
-    genres.push('(genres not listed)');
+    // Deduplicate (case-insensitive) and move '(no genre listed)' to the bottom
+    const seen = new Set();
+    genres = genres.filter(g => { const k = g.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; });
+    const noneIdx = genres.findIndex(g => g.toLowerCase() === '(no genre listed)');
+    if (noneIdx >= 0) { const [t] = genres.splice(noneIdx, 1); genres.push(t); }
     const top = genres.slice(0, 10);
     top.forEach((g, i) => {
       const b = document.createElement('button');
@@ -210,8 +213,10 @@ async function initUserFilters() {
     try {
       const gsrc = await fetchJSON('/genres');
       let genres = Array.isArray(gsrc) ? gsrc.slice() : [];
-      genres = genres.filter(g => g.toLowerCase() !== 'no genre listed' && g.toLowerCase() !== '(genres not listed)');
-      genres.push('(genres not listed)');
+      const seen2 = new Set();
+      genres = genres.filter(g => { const k = g.toLowerCase(); if (seen2.has(k)) return false; seen2.add(k); return true; });
+      const idx = genres.findIndex(g => g.toLowerCase() === '(no genre listed)');
+      if (idx >= 0) { const [t] = genres.splice(idx, 1); genres.push(t); }
       const picked = new Set();
       genres.slice(0, 20).forEach((g) => {
         const b = document.createElement('button');
