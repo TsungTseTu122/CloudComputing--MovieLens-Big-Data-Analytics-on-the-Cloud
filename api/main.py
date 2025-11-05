@@ -93,7 +93,7 @@ def recs_for_user(
         glist = {g.strip() for g in genres.split(",") if g.strip()}
         special = {g.lower() for g in glist}
         wants_none = any(
-            t in {"no genre listed", "none", "_none_", "(genres not listed)", "genres not listed"}
+            t in {"no genre listed", "none", "_none_", "(genres not listed)", "genres not listed", "(no genres listed)"}
             for t in special
         )
         plain = {g for g in glist if g.lower() not in {"no genre listed", "none", "_none_"}}
@@ -151,7 +151,7 @@ def popular(topN: int = 10, genres: Optional[str] = None) -> List[dict]:
         glist = {g.strip() for g in genres.split(",") if g.strip()}
         special = {g.lower() for g in glist}
         wants_none = any(
-            t in {"no genre listed", "none", "_none_", "(genres not listed)", "genres not listed"}
+            t in {"no genre listed", "none", "_none_", "(genres not listed)", "genres not listed", "(no genres listed)"}
             for t in special
         )
         plain = {g for g in glist if g.lower() not in {"no genre listed", "none", "_none_"}}
@@ -194,7 +194,18 @@ def browse_movies(topN: int = 50, genres: Optional[str] = None, year_from: Optio
     df = movies.copy()
     if genres:
         glist = {g.strip() for g in genres.split(",") if g.strip()}
-        df = df[df["genres"].fillna("").apply(lambda s: any(g in s for g in glist))]
+        special = {g.lower() for g in glist}
+        wants_none = any(
+            t in {"no genre listed", "none", "_none_", "(genres not listed)", "genres not listed", "(no genres listed)"}
+            for t in special
+        )
+        plain = {g for g in glist if g.lower() not in {"no genre listed", "none", "_none_", "(genres not listed)", "genres not listed", "(no genres listed)"}}
+        mask = False
+        if plain:
+            mask = df["genres"].fillna("").apply(lambda s: any(g in s for g in plain))
+        if wants_none:
+            mask = mask | df["genres"].isna() | (df["genres"].astype(str).str.strip() == "") | (df["genres"].astype(str).str.contains("\(no genres listed\)", case=False, na=False))
+        df = df[mask]
     if year_from is not None:
         df = df[df["year"].fillna(0) >= year_from]
     if year_to is not None:

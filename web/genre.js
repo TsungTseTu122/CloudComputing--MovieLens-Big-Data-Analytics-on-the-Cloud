@@ -31,8 +31,7 @@ async function loadGenre(){
   const row = $('#genre-row');
   showSkeleton(row, 8);
   try{
-    const token = (g && g.toLowerCase()==='(genres not listed)') ? 'No genre listed' : g;
-    const items = await fetchJSON(`/movies?topN=200&genres=${encodeURIComponent(token)}`);
+    const items = await fetchJSON(`/movies?topN=200&genres=${encodeURIComponent(g)}`);
     const ids = items.map(m=>m.movieId).filter(Boolean);
     let posters = {};
     try{ posters = await fetchJSON(`/posters?movieIds=${encodeURIComponent(ids.join(','))}`);}catch{}
@@ -42,4 +41,3 @@ async function loadGenre(){
 }
 
 window.addEventListener('DOMContentLoaded', loadGenre);
-
