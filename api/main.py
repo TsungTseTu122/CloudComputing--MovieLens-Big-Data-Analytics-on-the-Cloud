@@ -243,7 +243,7 @@ def posters(movieIds: str) -> dict:
             params = {"api_key": TMDB_API_KEY, "query": title}
             if pd.notna(year):
                 params["year"] = int(year)
-            r = requests.get("https://api.themoviedb.org/3/search/movie", params=params, timeout=10)
+            r = requests.get("https://api.themoviedb.org/3/search/movie", params=params, timeout=3)
             if r.ok:
                 js = r.json()
                 results = js.get("results") or []

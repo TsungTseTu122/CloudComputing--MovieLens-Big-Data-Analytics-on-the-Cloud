@@ -206,7 +206,7 @@ async function handleUserForm() {
 
 async function postersFor(items) {
   try {
-    const ids = items.map((m) => m.movieId).filter(Boolean);
+    const ids = items.slice(0, 12).map((m) => m.movieId).filter(Boolean);
     if (!ids.length) return {};
     return await fetchJSON(`/posters?movieIds=${encodeURIComponent(ids.join(','))}`);
   } catch {
