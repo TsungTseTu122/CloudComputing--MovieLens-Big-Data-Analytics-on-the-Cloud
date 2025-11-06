@@ -8,7 +8,7 @@ set -euo pipefail
 #   HDFS_CONTAINER=namenode
 #   USE_DOCKER=true|false (if true, copies files into the container before put)
 
-DATA_DIR=${1:-data/movielens/25m}
+DATA_DIR=${1:-data/movielens/32m}
 HDFS_TARGET=${HDFS_TARGET:-/user/hadoop/movielens}
 HDFS_URI=${HDFS_URI:-hdfs://namenode:8020}
 HDFS_CONTAINER=${HDFS_CONTAINER:-namenode}

@@ -1,5 +1,5 @@
 Param(
-  [string]$DataDir = "data/movielens/25m",
+  [string]$DataDir = "data/movielens/32m",
   [string]$HdfsTarget = "/user/hadoop/movielens",
   [string]$HdfsUri = "hdfs://namenode:8020",
   [string]$HdfsContainer = "namenode"

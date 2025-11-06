@@ -13,7 +13,7 @@ CloudComputing--MovieLens-Big-Data-Analytics-on-the-Cloud
 ├── data/                             # MovieLens artifacts downloaded by the helper script
 │   ├── MovieLens_Dataset_Info.txt    # Dataset license and source information
 │   └── movielens/
-│       └── 25m/                      # Example extracted dataset variant
+│       └── 32m/                      # Example extracted dataset variant
 │           ├── ratings.csv
 │           ├── movies.csv
 │           ├── tags.csv
@@ -95,10 +95,10 @@ changes are available remotely.
 
 ### 1. Download MovieLens automatically
 
-Run the helper script to download and extract the dataset variant you need (25M by default):
+Run the helper script to download and extract the dataset variant you need (32M by default):
 
 ```
-python scripts/download_movielens.py --variant 25m
+python scripts/download_movielens.py --variant 32m
 ```
 
 The command stores the CSV files under `data/movielens/<variant>/` and records a checksum so repeat runs skip the download unless you add `--force`.
@@ -111,7 +111,7 @@ After the CSVs are available locally, push them into HDFS so Spark can read them
 bash scripts/load_to_hdfs.sh
 ```
 
-The script uploads every CSV in `data/movielens/25m` to `hdfs://namenode:8020/user/hadoop/movielens/`. Override the source directory or container name with the `DATA_DIR`, `HDFS_TARGET`, and `HDFS_CONTAINER` environment variables if your setup differs (for example on Windows with WSL you can run `wsl bash scripts/load_to_hdfs.sh`).
+The script uploads every CSV in `data/movielens/32m` to `hdfs://namenode:8020/user/hadoop/movielens/`. Override the source directory or container name with the `DATA_DIR`, `HDFS_TARGET`, and `HDFS_CONTAINER` environment variables if your setup differs (for example on Windows with WSL you can run `wsl bash scripts/load_to_hdfs.sh`).
 
 ## Key Features
 
@@ -323,7 +323,7 @@ Tip: After recreating the Jupyter container, run `docker compose exec jupyter pi
 
 ## Data Upload Scripts (Cross‑platform)
 
-- PowerShell (Windows): `scripts/load_to_hdfs.ps1 -DataDir "data/movielens/25m"`
+- PowerShell (Windows): `scripts/load_to_hdfs.ps1 -DataDir "data/movielens/32m"`
 - Bash (Linux/macOS/WSL): `bash scripts/load_to_hdfs.sh`
 
 ## Future Improvements

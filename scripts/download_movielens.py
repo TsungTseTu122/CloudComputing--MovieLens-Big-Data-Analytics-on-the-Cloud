@@ -18,8 +18,9 @@ from zipfile import ZipFile
 
 LOGGER = logging.getLogger("movielens_download")
 
-DEFAULT_VARIANT = "25m"
+DEFAULT_VARIANT = "32m"
 DATASET_URLS: Dict[str, str] = {
+    "32m": "https://files.grouplens.org/datasets/movielens/ml-32m.zip",
     "latest": "https://files.grouplens.org/datasets/movielens/ml-latest.zip",
     "latest-small": "https://files.grouplens.org/datasets/movielens/ml-latest-small.zip",
     "25m": "https://files.grouplens.org/datasets/movielens/ml-25m.zip",
