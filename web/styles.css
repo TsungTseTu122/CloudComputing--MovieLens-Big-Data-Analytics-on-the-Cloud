@@ -74,3 +74,8 @@ body { margin: 0; font-family: Montserrat, system-ui, -apple-system, Segoe UI, R
 .list-mode .row { grid-auto-columns: 240px; }
 .list-mode .meta .title { font-size: 1rem; }
 .list-mode .meta .sub { font-size: 0.85rem; }
+
+/* Grid layout for genre pages */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+.grid .card { min-height: 220px; }
+.grid .poster { height: 140px; }
