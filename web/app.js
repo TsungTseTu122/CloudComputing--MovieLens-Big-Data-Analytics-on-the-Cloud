@@ -85,14 +85,10 @@ async function loadGenres() {
       const b = document.createElement('button');
       b.className = 'chip' + (i === 0 ? ' active' : '');
       b.textContent = g;
-      b.onclick = () => {
-        $$('.chip').forEach((c) => c.classList.remove('active'));
-        b.classList.add('active');
-        renderGenre(g);
-      };
+      b.onclick = () => { window.location.href = `/ui/genre.html?g=${encodeURIComponent(g)}`; };
       list.appendChild(b);
     });
-    if (top.length) renderGenre(top[0]);
+    // Do not auto-render a horizontal row; use dedicated genre pages
     // Populate sidebar genres
     const side = document.getElementById('side-genres');
     if (side) {
