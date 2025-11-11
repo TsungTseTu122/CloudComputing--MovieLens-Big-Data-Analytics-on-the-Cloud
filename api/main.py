@@ -290,6 +290,19 @@ def list_users(limit: int = 200) -> List[str]:
     return users[: max(0, int(limit))]
 
 
+@app.get("/years")
+def years() -> dict:
+    """Return min/max year and the list of available years from movies metadata."""
+    movies = app.state.movies
+    if movies.empty or "year" not in movies.columns:
+        return {"min": None, "max": None, "years": []}
+    yrs = movies["year"].dropna().astype(int)
+    if yrs.empty:
+        return {"min": None, "max": None, "years": []}
+    vals = sorted(set(int(x) for x in yrs.tolist()))
+    return {"min": vals[0], "max": vals[-1], "years": vals}
+
+
 @app.get("/history")
 def history(userId: Optional[str] = None, topN: int = 20) -> List[dict]:
     fb_dir = os.path.join(PRECOMPUTE_DIR, "feedback")

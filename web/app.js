@@ -115,10 +115,8 @@ async function loadGenres() {
 }
 
 async function initUsersSelect() {
-  const headerSel = document.getElementById('userSelHeader');
-  const formSel = document.getElementById('userSel');
-  const targets = [headerSel, formSel].filter(Boolean);
-  if (targets.length === 0) return;
+  const chipsBox = document.getElementById('user-chips');
+  if (!chipsBox) return;
   try {
     let users = await fetchJSON('/users?limit=500');
     // Defensive sort: numeric ascending when possible
@@ -130,18 +128,12 @@ async function initUsersSelect() {
       if (!da && db) return 1;
       return sa.localeCompare(sb);
     });
-    targets.forEach(sel => {
-      users.forEach(u => {
-        const opt = document.createElement('option');
-        opt.value = u; opt.textContent = u;
-        sel.appendChild(opt);
-      });
+    users.slice(0, 200).forEach(u => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'chip'; b.textContent = u;
+      b.onclick = () => { $$('#user-chips .chip').forEach(c=>c.classList.remove('active')); b.classList.add('active'); };
+      chipsBox.appendChild(b);
     });
-    // keep header and (optional) form select in sync
-    if (headerSel && formSel) {
-      headerSel.addEventListener('change', () => { formSel.value = headerSel.value; });
-      formSel.addEventListener('change', () => { headerSel.value = formSel.value; });
-    }
   } catch {}
 }
 
@@ -169,12 +161,15 @@ async function handleUserForm() {
   const form = $('#user-form');
   form.addEventListener('submit', async (ev) => {
     ev.preventDefault();
-    const userSel = document.getElementById('userSelHeader');
-    const userId = userSel ? String(userSel.value || '').trim() : '';
-    const topN = Number($('#topN').value || 20);
+    const chipsBox = document.getElementById('user-chips');
+    const active = chipsBox ? chipsBox.querySelector('.chip.active') : null;
+    const userId = active ? String((active.textContent||'').trim()) : '';
+    const topN = 20;
     const genres = $('#genres').value.trim();
-    const yearFrom = $('#yearFrom').value.trim();
-    const yearTo = $('#yearTo').value.trim();
+    const yearFromSel = document.getElementById('yearFromSel');
+    const yearToSel = document.getElementById('yearToSel');
+    const yearFrom = yearFromSel ? String((yearFromSel.value||'').trim()) : '';
+    const yearTo = yearToSel ? String((yearToSel.value||'').trim()) : '';
     const row = $('#user-row');
     localStorage.setItem('ml_user', userId || '');
     showSkeleton(row, 8);
@@ -186,7 +181,7 @@ async function handleUserForm() {
       const data = userId
         ? await fetchJSON(`/recommendations/user/${encodeURIComponent(userId)}?${params}`)
         : await fetchJSON(`/popular?${params}`);
-      const posters = await postersFor(data.slice(0, 12));
+      const posters = await postersFor(data);
       const withPosters = data.map((m) => ({...m, poster: posters[m.movieId]}));
       if (!withPosters.length) {
         row.textContent = 'No recommendations found for this user.';
@@ -208,6 +203,34 @@ async function postersFor(items) {
   } catch {
     return {};
   }
+}
+
+// Populate year range selects from API /years
+async function initYearSelectors() {
+  const yfrom = document.getElementById('yearFromSel');
+  const yto = document.getElementById('yearToSel');
+  if (!yfrom || !yto) return;
+  try {
+    const data = await fetchJSON('/years');
+    const years = Array.isArray(data.years) ? data.years : [];
+    function fill() {
+      yfrom.innerHTML=''; yto.innerHTML='';
+      const optAllFrom = document.createElement('option'); optAllFrom.value=''; optAllFrom.textContent='From'; yfrom.appendChild(optAllFrom);
+      const optAllTo = document.createElement('option'); optAllTo.value=''; optAllTo.textContent='To'; yto.appendChild(optAllTo);
+      years.forEach(y=>{ const o=document.createElement('option'); o.value=String(y); o.textContent=String(y); yfrom.appendChild(o.cloneNode(true)); yto.appendChild(o); });
+    }
+    fill();
+    function clampTo() {
+      const fv = parseInt(yfrom.value||'0',10);
+      Array.from(yto.options).forEach((o,i)=>{ if (i===0) return; o.disabled = !!yfrom.value && parseInt(o.value,10) < fv; });
+    }
+    function clampFrom() {
+      const tv = parseInt(yto.value||'0',10);
+      Array.from(yfrom.options).forEach((o,i)=>{ if (i===0) return; o.disabled = !!yto.value && parseInt(o.value,10) > tv; });
+    }
+    yfrom.addEventListener('change', clampTo);
+    yto.addEventListener('change', clampFrom);
+  } catch {}
 }
 
 // Build genre chips and year preset chips under the Recommendations panel
@@ -292,6 +315,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   await initUsersSelect();
   handleUserForm();
   initUserFilters();
+  initYearSelectors();
   handleBrowse();
   await loadPopular();
   await loadMostClicked();
@@ -300,7 +324,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   enableKeyboardScroll();
   // Restore last user
   const lastUser = localStorage.getItem('ml_user');
-  if (lastUser && $('#userSelHeader')) { $('#userSelHeader').value = lastUser; }
+  if (lastUser) { $$('#user-chips .chip').forEach(c=>{ if (c.textContent===lastUser) c.classList.add('active'); }); }
   // View mode toggle: posters/list
   const savedMode = localStorage.getItem('ml_mode');
   if (savedMode === 'list') { document.body.classList.add('list-mode'); }
