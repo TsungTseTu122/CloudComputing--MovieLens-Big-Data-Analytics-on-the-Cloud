@@ -115,8 +115,11 @@ async function loadGenres() {
 }
 
 async function initUsersSelect() {
-  const chipsBox = document.getElementById('user-chips');
-  if (!chipsBox) return;
+  const btn = document.getElementById('userBtn');
+  const menu = document.getElementById('userMenu');
+  const search = document.getElementById('userSearch');
+  const list = document.getElementById('userListBox');
+  if (!btn || !menu || !search || !list) return;
   try {
     let users = await fetchJSON('/users?limit=500');
     // Defensive sort: numeric ascending when possible
@@ -128,12 +131,30 @@ async function initUsersSelect() {
       if (!da && db) return 1;
       return sa.localeCompare(sb);
     });
-    users.slice(0, 200).forEach(u => {
-      const b = document.createElement('button');
-      b.type = 'button'; b.className = 'chip'; b.textContent = u;
-      b.onclick = () => { $$('#user-chips .chip').forEach(c=>c.classList.remove('active')); b.classList.add('active'); };
-      chipsBox.appendChild(b);
-    });
+    // Build list of items
+    function render(q = '') {
+      const query = String(q).trim().toLowerCase();
+      list.innerHTML = '';
+      const frag = document.createDocumentFragment();
+      const data = users.filter(u => !query || String(u).toLowerCase().includes(query));
+      data.forEach(u => {
+        const d = document.createElement('button');
+        d.type = 'button'; d.className = 'dropdown-item'; d.textContent = u; d.setAttribute('role','option');
+        d.onclick = () => { btn.dataset.user = String(u); btn.textContent = `${u} ▾`; menu.hidden = true; localStorage.setItem('ml_user', String(u)); };
+        frag.appendChild(d);
+      });
+      if (!data.length) {
+        const empty = document.createElement('div'); empty.className='empty-center'; empty.textContent='No users'; frag.appendChild(empty);
+      }
+      list.appendChild(frag);
+    }
+    render('');
+    // Open/close behavior
+    btn.addEventListener('click', () => { menu.hidden = !menu.hidden; if (!menu.hidden) { search.focus(); } });
+    document.addEventListener('click', (e) => { if (!menu.contains(e.target) && e.target !== btn) menu.hidden = true; });
+    search.addEventListener('input', () => render(search.value));
+    // Restore last user
+    const last = localStorage.getItem('ml_user'); if (last) { btn.dataset.user = last; btn.textContent = `${last} ▾`; }
   } catch {}
 }
 
@@ -161,14 +182,14 @@ async function handleUserForm() {
   const form = $('#user-form');
   form.addEventListener('submit', async (ev) => {
     ev.preventDefault();
-    const userInput = document.getElementById('userInput');
-    const userId = userInput ? String((userInput.value||'').trim()) : '';
+    const userBtn = document.getElementById('userBtn');
+    const userId = userBtn ? String((userBtn.dataset.user||'').trim()) : '';
     const topN = 20;
     const genres = $('#genres').value.trim();
-    const yearFromSel = document.getElementById('yearFromSel');
-    const yearToSel = document.getElementById('yearToSel');
-    const yearFrom = yearFromSel ? String((yearFromSel.value||'').trim()) : '';
-    const yearTo = yearToSel ? String((yearToSel.value||'').trim()) : '';
+    const yearFromEl = document.getElementById('yearFrom');
+    const yearToEl = document.getElementById('yearTo');
+    const yearFrom = yearFromEl ? String((yearFromEl.value||'').trim()) : '';
+    const yearTo = yearToEl ? String((yearToEl.value||'').trim()) : '';
     const row = $('#user-row');
     localStorage.setItem('ml_user', userId || '');
     showSkeleton(row, 8);
@@ -326,8 +347,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   renderMyList();
   enableKeyboardScroll();
   // Restore last user
-  const lastUser = localStorage.getItem('ml_user');
-  if (lastUser) { $$('#user-chips .chip').forEach(c=>{ if (c.textContent===lastUser) c.classList.add('active'); }); }
+  // handled in initUsersSelect
   // View mode toggle: posters/list
   const savedMode = localStorage.getItem('ml_mode');
   if (savedMode === 'list') { document.body.classList.add('list-mode'); }

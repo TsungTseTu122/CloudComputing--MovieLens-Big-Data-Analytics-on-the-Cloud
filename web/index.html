@@ -37,12 +37,16 @@
         <h2>Recommendations</h2>
         <form id="user-form" class="user-form">
           <div class="subtitle">Pick user</div>
-          <input id="userInput" list="userList" placeholder="Type or pick a user ID" />
-          <datalist id="userList"></datalist>
-          <input id="genres" type="text" placeholder="Genres filter (optional, comma-separated)" />
-          <div class="subtitle">Year range</div>
-          <select id="yearFromSel" title="From"></select>
-          <select id="yearToSel" title="To"></select>
+          <div class="dropdown" id="userDropdown">
+            <button type="button" id="userBtn" class="dropdown-btn" data-user="">Filters only ▾</button>
+            <div class="dropdown-menu" id="userMenu" hidden>
+              <input id="userSearch" class="dropdown-search" placeholder="Search users..." />
+              <div id="userListBox" class="dropdown-list" role="listbox" aria-label="Users"></div>
+            </div>
+          </div>
+          <input id="genres" type="hidden" />
+          <input id="yearFrom" type="hidden" />
+          <input id="yearTo" type="hidden" />
           <button type="submit">Recommend</button>
         </form>
         <div class="subcontrols">
