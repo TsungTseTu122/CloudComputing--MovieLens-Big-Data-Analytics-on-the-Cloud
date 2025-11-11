@@ -161,9 +161,8 @@ async function handleUserForm() {
   const form = $('#user-form');
   form.addEventListener('submit', async (ev) => {
     ev.preventDefault();
-    const chipsBox = document.getElementById('user-chips');
-    const active = chipsBox ? chipsBox.querySelector('.chip.active') : null;
-    const userId = active ? String((active.textContent||'').trim()) : '';
+    const userInput = document.getElementById('userInput');
+    const userId = userInput ? String((userInput.value||'').trim()) : '';
     const topN = 20;
     const genres = $('#genres').value.trim();
     const yearFromSel = document.getElementById('yearFromSel');
@@ -181,12 +180,16 @@ async function handleUserForm() {
       const data = userId
         ? await fetchJSON(`/recommendations/user/${encodeURIComponent(userId)}?${params}`)
         : await fetchJSON(`/popular?${params}`);
-      const posters = await postersFor(data);
-      const withPosters = data.map((m) => ({...m, poster: posters[m.movieId]}));
-      if (!withPosters.length) {
+      if (!data.length) {
         row.textContent = 'No recommendations found for this user.';
       } else {
-        withPosters.forEach((m) => card(row, m));
+        row.innerHTML = '';
+        data.forEach((m) => card(row, m));
+        const posters = await postersFor(data);
+        data.forEach(m => {
+          const p = row.querySelector(`[data-mid="${CSS.escape(String(m.movieId))}"] .poster`);
+          if (p && posters[m.movieId]) { p.classList.add('has-img'); p.style.backgroundImage = `url('${posters[m.movieId]}')`; p.textContent=''; }
+        });
       }
       // no continue-watching UI
     } catch (e) {

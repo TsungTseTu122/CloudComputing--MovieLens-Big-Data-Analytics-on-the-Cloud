@@ -37,7 +37,8 @@
         <h2>Recommendations</h2>
         <form id="user-form" class="user-form">
           <div class="subtitle">Pick user</div>
-          <div id="user-chips" class="chips"></div>
+          <input id="userInput" list="userList" placeholder="Type or pick a user ID" />
+          <datalist id="userList"></datalist>
           <input id="genres" type="text" placeholder="Genres filter (optional, comma-separated)" />
           <div class="subtitle">Year range</div>
           <select id="yearFromSel" title="From"></select>
