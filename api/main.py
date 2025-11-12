@@ -10,6 +10,7 @@ import pandas as pd
 from fastapi import FastAPI, Query
 from fastapi.staticfiles import StaticFiles
 import requests
+from fastapi.responses import RedirectResponse, Response
 from pydantic import BaseModel
 
 
@@ -184,6 +185,12 @@ def list_genres() -> List[str]:
         for token in split_genres(g):
             all_genres.add(token)
     return sorted(all_genres)
+
+
+@app.get("/favicon.ico")
+def favicon() -> Response:
+    # Redirect to our static SVG favicon to avoid 404 noise in browsers
+    return RedirectResponse(url="/ui/favicon.svg")
 
 
 @app.get("/movies")
