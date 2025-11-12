@@ -37,9 +37,7 @@ body { margin: 0; font-family: Montserrat, system-ui, -apple-system, Segoe UI, R
 .row.active { outline: 1px dashed #333; outline-offset: 2px; }
 .subtitle { color: var(--muted); font-size: 0.85rem; margin: 6px 0 4px; }
 .user-form select { background: #1a1b20; border: 1px solid #2a2c34; color: var(--text); border-radius: 6px; padding: 8px 10px; }
-.chips#user-chips { gap: 6px; max-height: 120px; overflow-y: auto; padding: 4px 0; }
-.chips#user-chips .chip { min-width: 48px; }
-.topn-control { display: none; }
+/* removed legacy user-chips and TopN controls */
 .empty-center { display: flex; align-items: center; justify-content: center; min-height: 72px; color: var(--muted); }
 
 /* Enhancements and layout overrides */
@@ -83,8 +81,10 @@ body { margin: 0; font-family: Montserrat, system-ui, -apple-system, Segoe UI, R
 
 /* Pretty dropdown for user select */
 .dropdown { position: relative; display: inline-block; }
-.dropdown-btn { background: #1a1b20; color: var(--text); border: 1px solid #2a2c34; border-radius: 8px; padding: 10px 12px; min-width: 220px; text-align: left; cursor: pointer; }
-.dropdown-btn:focus { outline: 2px solid #2a6df6; }
+.dropdown-btn { background: #10141b; color: var(--text); border: 1px solid #3a3f4e; border-radius: 10px; padding: 10px 12px; min-width: 240px; text-align: left; cursor: pointer; transition: border-color 120ms ease, box-shadow 120ms ease, background 120ms ease; }
+.dropdown-btn:hover { border-color: #4a90e2; box-shadow: 0 0 0 2px rgba(74,144,226,.12) inset; }
+.dropdown-btn:focus { outline: none; box-shadow: 0 0 0 2px rgba(74,144,226,.35); }
+.dropdown-btn.open { border-color: #4a90e2; color: #e9f1ff; background: #0f1320; }
 .dropdown-menu { position: absolute; top: calc(100% + 6px); left: 0; background: #14161c; border: 1px solid #2a2c34; border-radius: 10px; width: 320px; box-shadow: 0 10px 30px rgba(0,0,0,.4); z-index: 30; padding: 8px; }
 .dropdown-search { width: 100%; background: #1a1b20; border: 1px solid #2a2c34; color: var(--text); border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; }
 .dropdown-list { max-height: 260px; overflow: auto; display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }

@@ -4,6 +4,7 @@ const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 function card(node, movie) {
   const tpl = document.getElementById('card-template');
   const el = tpl.content.firstElementChild.cloneNode(true);
+  if (movie.movieId) el.dataset.mid = String(movie.movieId);
   el.querySelector('.title').textContent = movie.title ?? movie.movieId;
   const sub = [];
   if (movie.genres) sub.push(movie.genres);
@@ -59,9 +60,13 @@ async function loadPopular() {
   showSkeleton(row, 8);
   try {
     const data = await fetchJSON('/popular?topN=50');
-    const posters = await postersFor(data);
     row.innerHTML = '';
-    data.map((m) => ({...m, poster: posters[m.movieId]})).forEach((m) => card(row, m));
+    data.forEach((m) => card(row, m));
+    const posters = await postersFor(data);
+    data.forEach(m => {
+      const p = row.querySelector(`[data-mid="${CSS.escape(String(m.movieId))}"] .poster`);
+      if (p && posters[m.movieId]) { p.classList.add('has-img'); p.style.backgroundImage = `url('${posters[m.movieId]}')`; p.textContent=''; }
+    });
   } catch (e) {
     row.textContent = 'Failed to load popular titles';
   }
@@ -150,8 +155,19 @@ async function initUsersSelect() {
     }
     render('');
     // Open/close behavior
-    btn.addEventListener('click', () => { menu.hidden = !menu.hidden; if (!menu.hidden) { search.focus(); } });
-    document.addEventListener('click', (e) => { if (!menu.contains(e.target) && e.target !== btn) menu.hidden = true; });
+    btn.addEventListener('click', () => {
+      menu.hidden = !menu.hidden;
+      btn.classList.toggle('open', !menu.hidden);
+      btn.setAttribute('aria-expanded', String(!menu.hidden));
+      if (!menu.hidden) { search.focus(); }
+    });
+    document.addEventListener('click', (e) => {
+      if (!menu.contains(e.target) && e.target !== btn) {
+        menu.hidden = true;
+        btn.classList.remove('open');
+        btn.setAttribute('aria-expanded', 'false');
+      }
+    });
     search.addEventListener('input', () => render(search.value));
     // Restore last user
     const last = localStorage.getItem('ml_user'); if (last) { btn.dataset.user = last; btn.textContent = `${last} ▾`; }
@@ -171,8 +187,12 @@ async function renderGenre(genre) {
   rows.appendChild(section);
   try {
     const data = await fetchJSON(`/popular?topN=20&genres=${encodeURIComponent(genre)}`);
+    data.forEach((m) => card(row, m));
     const posters = await postersFor(data);
-    data.map((m) => ({...m, poster: posters[m.movieId]})).forEach((m) => card(row, m));
+    data.forEach(m => {
+      const p = row.querySelector(`[data-mid="${CSS.escape(String(m.movieId))}"] .poster`);
+      if (p && posters[m.movieId]) { p.classList.add('has-img'); p.style.backgroundImage = `url('${posters[m.movieId]}')`; p.textContent=''; }
+    });
   } catch (e) {
     row.textContent = 'Failed to load';
   }
@@ -231,8 +251,8 @@ async function postersFor(items) {
 
 // Populate year range selects from API /years
 async function initYearSelectors() {
-  const yfrom = document.getElementById('yearFromSel');
-  const yto = document.getElementById('yearToSel');
+  const yfrom = document.getElementById('yearFrom');
+  const yto = document.getElementById('yearTo');
   if (!yfrom || !yto) return;
   try {
     const data = await fetchJSON('/years');
@@ -325,8 +345,14 @@ function handleBrowse() {
     showSkeleton(row, 8);
     try {
       const data = await fetchJSON(`/movies?topN=${topN}${q ? `&q=${encodeURIComponent(q)}` : ''}`);
+      row.innerHTML = '';
+      if (!data.length) { row.textContent = 'No results.'; return; }
+      data.forEach((m) => card(row, m));
       const posters = await postersFor(data);
-      data.map((m) => ({...m, poster: posters[m.movieId]})).forEach((m) => card(row, m));
+      data.forEach(m => {
+        const p = row.querySelector(`[data-mid="${CSS.escape(String(m.movieId))}"] .poster`);
+        if (p && posters[m.movieId]) { p.classList.add('has-img'); p.style.backgroundImage = `url('${posters[m.movieId]}')`; p.textContent=''; }
+      });
     } catch (e) {
       row.textContent = 'Search failed';
     }
