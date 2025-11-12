@@ -1,5 +1,16 @@
 # CloudComputing--MovieLens-Big-Data-Analytics-on-the-Cloud
 
+## Demo
+
+Watch a short walkthrough of the UI and API:
+
+- Demo video: docs/demo.mp4 (replace this link with your hosted video or GIF)
+- Quick highlights:
+  - Dataset switch to MovieLens 32M with one command
+  - API + Swagger and a Netflix‑style web UI at `/ui`
+  - Polished user picker, genre tags, year presets, and instant rendering
+
+
 ## Overview
 This project analyzes the MovieLens dataset using PySpark, Hadoop HDFS, and Docker to perform clustering, classification, and association rule mining on user-movie interactions. The system runs in a containerized cloud environment with Spark clusters, enabling scalable big data processing.
 
@@ -324,6 +335,61 @@ Tip: After recreating the Jupyter container, run `docker compose exec jupyter pi
 ## Data Upload Scripts (Cross‑platform)
 
 - PowerShell (Windows): `scripts/load_to_hdfs.ps1 -DataDir "data/movielens/32m"`
+
+## How The Recommender Works
+
+- Data + Training (Spark)
+  - Reads ratings.csv and movies.csv from the MovieLens dataset.
+  - Trains an ALS model (matrix factorization) with PySpark ML.
+  - Writes Parquet artifacts under `outputs/`:
+    - `movies_meta` (movieId, title, genres, year)
+    - `user_topn` (Top‑N recommendations per user, includes score and metadata)
+    - `item_factors` (movieId, latent feature vector)
+    - `popularity` (pop_score by movie, plus metadata)
+  - For large datasets (32M), artifacts are written as multiple Parquet part files (no single huge file) for stability and speed.
+
+- API (FastAPI)
+  - `GET /recommendations/user/{user_id}` → personalized Top‑N (filters: genres/year range)
+  - `GET /recommendations/item/{movie_id}` → similar items (cosine on normalized item factors)
+  - `GET /popular` → popular titles (by genre or overall)
+  - `GET /users` → valid user IDs from `user_topn` (sorted ascending)
+  - `GET /years` → valid year range from `movies_meta`
+  - `POST /feedback` → records list/favorite events to JSONL (optional; powers “Most Popular”)
+  - `GET /feedback/summary` → decayed + weighted popularity from feedback, blended with baseline
+
+- UI (at `/ui`)
+  - Pick user (dataset‑backed dropdown with search‑in‑menu)
+  - Pick genres (multi‑select chips) and year presets (chips)
+  - Recommend renders immediately; posters load in the background (fast, non‑blocking)
+  - Dedicated grid page for each genre tag
+
+## Quick Start (Local)
+
+1) Train + Write Artifacts (light settings for validation)
+
+```
+python -m src.recommendation \
+  --master-local \
+  --ratings-path data/movielens/32m/ratings.csv \
+  --movies-path data/movielens/32m/movies.csv \
+  --rank 8 --max-iter 4 --reg 0.1 \
+  --topn-k 20 \
+  --write-artifacts --precompute-dir outputs
+```
+
+2) Run API + UI
+
+```
+$env:PRECOMPUTE_DIR = (Resolve-Path .\outputs).Path
+py -m uvicorn api.main:app --reload --port 8000
+```
+
+Open: http://127.0.0.1:8000/ui (Ctrl+F5 for a hard refresh)
+
+## Notes
+
+- Posters (optional): set `TMDB_API_KEY` if you want thumbnails. The UI caps lookups and timeouts to stay responsive.
+- 404s like `/.well-known/appspecific/...` were silenced; `favicon.ico` is handled and linked.
 - Bash (Linux/macOS/WSL): `bash scripts/load_to_hdfs.sh`
 
 ## Future Improvements
