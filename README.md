@@ -277,22 +277,32 @@ Open Jupyter at http://localhost:8888 and use the notebooks in `notebooks/`.
 
 ### Project.ipynb (Exploration)
 
-Purpose: original exploratory analysis of the MovieLens CSVs (schema, sampling, quick visuals), running against HDFS on the cluster.
+Purpose: original exploratory analysis of the MovieLens CSVs (schema, sampling, quick visuals). Loads the MovieLens 32M files from `data/movielens/32m` (auto-downloads via `scripts/download_movielens.py` if missing) and walks through the cleaning and analysis steps in Jupyter—no Hadoop/HDFS setup required.
 
-Starter cell:
+Starter cell (local):
 
 ```
 from pyspark.sql import SparkSession
+
+movies_path = "data/movielens/32m/movies.csv"
+
 spark = (
     SparkSession.builder
-    .master("spark://spark-master:7077")
+    .master("local[*]")
     .appName("MovieLensAnalysis")
+    .config("spark.sql.shuffle.partitions", "8")
     .getOrCreate()
 )
 
-movies = spark.read.csv("hdfs://namenode:8020/user/hadoop/movielens/movies.csv", header=True, inferSchema=True)
+movies = spark.read.csv(movies_path, header=True, inferSchema=True)
 movies.show(20, truncate=False)
 ```
+
+Manual steps to run in Jupyter:
+1) Install deps: `pip install -r requirements.txt`.
+2) Download data once: `python scripts/download_movielens.py --variant 32m` (stores under `data/movielens/32m`).
+3) Start Jupyter: `jupyter notebook` and open `notebooks/Project.ipynb`.
+4) Run cells top-to-bottom; the setup cell will reuse the local CSVs. Use Spark cells for the full flow or the pandas preview cell for a quick look.
 
 ### Recommender.ipynb (ALS Walkthrough)
 

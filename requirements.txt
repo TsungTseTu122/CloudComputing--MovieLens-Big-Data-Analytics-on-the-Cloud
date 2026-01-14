@@ -10,3 +10,6 @@ pytest
 fastapi
 uvicorn[standard]
 pyarrow
+scikit-learn
+plotly
+nbformat>=4.2
