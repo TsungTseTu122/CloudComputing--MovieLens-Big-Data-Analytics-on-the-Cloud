@@ -15,8 +15,9 @@
       <div class="brand">MovieRecommand</div>
       <!-- user selection moved into Recommendations panel -->
       <div class="controls">
-        <button id="mode-toggle" class="chip" title="Toggle posters/list" aria-label="Toggle posters/list">🖼️</button>
+        <button id="analytics-btn" class="chip" title="View Analytics" aria-label="Analytics">📊</button>
         <button id="settings-btn" class="chip" title="Settings" aria-label="Settings">⚙️</button>
+        <span id="user-greeting" class="user-greeting">Hi, guest</span>
         <button id="auth-btn" class="chip" title="Login/Logout" aria-label="Login/Logout">🔐</button>
       </div>
     </header>
@@ -37,24 +38,29 @@
       <section id="user" class="panel">
         <h2>Recommendations</h2>
         <form id="user-form" class="user-form">
-          <div class="subtitle">Pick user</div>
-          <div class="dropdown" id="userDropdown">
-            <button type="button" id="userBtn" class="dropdown-btn" data-user="">Filters only ▾</button>
-            <div class="dropdown-menu" id="userMenu" hidden>
-              <input id="userSearch" class="dropdown-search" placeholder="Search users..." />
-              <div id="userListBox" class="dropdown-list" role="listbox" aria-label="Users"></div>
-            </div>
-          </div>
           <input id="genres" type="hidden" />
           <input id="yearFrom" type="hidden" />
           <input id="yearTo" type="hidden" />
-          <button type="submit">Recommend</button>
         </form>
         <div class="subcontrols">
           <div class="subtitle">Pick genres</div>
           <div id="user-genres" class="chips"></div>
-          <div class="subtitle">Year presets</div>
-          <div id="year-presets" class="chips"></div>
+          <div class="subtitle">Year range</div>
+          <div id="year-range" class="year-range">
+            <div class="year-range-header">
+              <span id="year-range-label">All years</span>
+              <span class="year-range-values"><span id="year-range-from">—</span> – <span id="year-range-to">—</span></span>
+            </div>
+            <div class="year-range-slider" id="year-slider">
+              <div class="year-range-track"></div>
+              <div class="year-range-fill" id="year-range-fill"></div>
+              <div class="year-thumb from" id="year-thumb-from" tabindex="0" aria-label="Year from"></div>
+              <div class="year-thumb to" id="year-thumb-to" tabindex="0" aria-label="Year to"></div>
+            </div>
+          </div>
+          <div class="subcontrols-row">
+            <button id="recommend-btn" class="btn-primary" type="button">Recommend</button>
+          </div>
         </div>
         <div id="user-row" class="row"></div>
       </section>
@@ -77,7 +83,7 @@
       </section>
 
       <section id="genres" class="panel">
-        <h2>Top by Genre</h2>
+        <h2>Genres</h2>
         <div id="genres-list" class="chips"></div>
         <div id="genre-rows"></div>
       </section>
@@ -101,6 +107,72 @@
       <div class="tt-sub"></div>
     </div>
 
-    <script src="/ui/app.js?v=2"></script>
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal" hidden>
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Settings</h2>
+          <button class="modal-close" data-modal="settings-modal">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="setting-group">
+            <label for="poster-quality">Poster Quality</label>
+            <select id="poster-quality">
+              <option value="w185">Low (185px)</option>
+              <option value="w342" selected>Medium (342px)</option>
+              <option value="w500">High (500px)</option>
+            </select>
+          </div>
+          <div class="setting-group">
+            <label for="items-per-row">Items Per Row</label>
+            <select id="items-per-row">
+              <option value="4">4</option>
+              <option value="6" selected>6</option>
+              <option value="8">8</option>
+              <option value="10">10</option>
+            </select>
+          </div>
+          <div class="setting-group">
+            <label for="theme-select">Theme</label>
+            <select id="theme-select">
+              <option value="dark" selected>Dark</option>
+              <option value="light">Light</option>
+            </select>
+          </div>
+          <div class="setting-group">
+            <label>
+              <input type="checkbox" id="auto-play-trailers">
+              Auto-play Trailers (Coming Soon)
+            </label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button id="save-settings" class="btn-primary">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Login Modal -->
+    <div id="login-modal" class="modal" hidden>
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>User Login</h2>
+          <button class="modal-close" data-modal="login-modal">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="setting-group">
+            <label for="user-id-input">User ID</label>
+            <input type="text" id="user-id-input" placeholder="Enter your user ID (e.g., 123)" />
+            <p class="help-text">Current user: <span id="current-user">guest</span></p>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button id="logout-btn" class="btn-secondary">Logout</button>
+          <button id="login-btn" class="btn-primary">Login</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="/ui/app.js?v=15"></script>
   </body>
   </html>

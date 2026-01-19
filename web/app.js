@@ -1,6 +1,9 @@
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
+// Cache for genre queries (client-side)
+const genreCache = {};
+
 function card(node, movie) {
   const tpl = document.getElementById('card-template');
   const el = tpl.content.firstElementChild.cloneNode(true);
@@ -55,6 +58,38 @@ async function fetchJSON(url) {
   return await r.json();
 }
 
+async function browseByGenre(genre) {
+  // Fast genre browse with client-side caching
+  const row = $('#browse-row');
+  
+  // Check cache first
+  if (genreCache[genre]) {
+    row.innerHTML = '';
+    genreCache[genre].forEach((m) => card(row, m));
+    const posters = await postersFor(genreCache[genre]);
+    genreCache[genre].forEach(m => {
+      const p = row.querySelector(`[data-mid="${CSS.escape(String(m.movieId))}"] .poster`);
+      if (p && posters[m.movieId]) { p.classList.add('has-img'); p.style.backgroundImage = `url('${posters[m.movieId]}')`; p.textContent=''; }
+    });
+    return;
+  }
+  
+  showSkeleton(row, 8);
+  try {
+    const data = await fetchJSON(`/movies?topN=50&genres=${encodeURIComponent(genre)}`);
+    genreCache[genre] = data;  // Cache result
+    row.innerHTML = '';
+    data.forEach((m) => card(row, m));
+    const posters = await postersFor(data);
+    data.forEach(m => {
+      const p = row.querySelector(`[data-mid="${CSS.escape(String(m.movieId))}"] .poster`);
+      if (p && posters[m.movieId]) { p.classList.add('has-img'); p.style.backgroundImage = `url('${posters[m.movieId]}')`; p.textContent=''; }
+    });
+  } catch (e) {
+    row.textContent = `Failed to load ${genre} movies`;
+  }
+}
+
 async function loadPopular() {
   const row = $('#popular-row');
   showSkeleton(row, 8);
@@ -80,11 +115,17 @@ async function loadGenres() {
   try {
     const gsrc = await fetchJSON('/genres');
     let genres = Array.isArray(gsrc) ? gsrc.slice() : [];
-    // Deduplicate (case-insensitive) and move '(no genre listed)' to the bottom
+    // Deduplicate (case-insensitive)
     const seen = new Set();
     genres = genres.filter(g => { const k = g.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; });
-    const noneIdx = genres.findIndex(g => g.toLowerCase() === '(no genre listed)');
-    if (noneIdx >= 0) { const [t] = genres.splice(noneIdx, 1); genres.push(t); }
+    // Sort alphabetically but push any variant of "no genre listed" to the end
+    const isNone = (g) => g.toLowerCase().includes('no genre');
+    genres.sort((a,b) => {
+      const an = isNone(a), bn = isNone(b);
+      if (an && !bn) return 1;
+      if (!an && bn) return -1;
+      return a.localeCompare(b);
+    });
     const top = genres.slice(0, 10);
     top.forEach((g, i) => {
       const b = document.createElement('button');
@@ -119,59 +160,35 @@ async function loadGenres() {
   }
 }
 
-async function initUsersSelect() {
-  const btn = document.getElementById('userBtn');
-  const menu = document.getElementById('userMenu');
-  const search = document.getElementById('userSearch');
-  const list = document.getElementById('userListBox');
-  if (!btn || !menu || !search || !list) return;
-  try {
-    let users = await fetchJSON('/users?limit=500');
-    // Defensive sort: numeric ascending when possible
-    users = (Array.isArray(users) ? users : []).slice().sort((a,b) => {
-      const sa=String(a).trim(), sb=String(b).trim();
-      const da=/^\d+$/.test(sa), db=/^\d+$/.test(sb);
-      if (da && db) return Number(sa) - Number(sb);
-      if (da && !db) return -1;
-      if (!da && db) return 1;
-      return sa.localeCompare(sb);
-    });
-    // Build list of items
-    function render(q = '') {
-      const query = String(q).trim().toLowerCase();
-      list.innerHTML = '';
-      const frag = document.createDocumentFragment();
-      const data = users.filter(u => !query || String(u).toLowerCase().includes(query));
-      data.forEach(u => {
-        const d = document.createElement('button');
-        d.type = 'button'; d.className = 'dropdown-item'; d.textContent = u; d.setAttribute('role','option');
-        d.onclick = () => { btn.dataset.user = String(u); btn.textContent = `${u} ▾`; menu.hidden = true; localStorage.setItem('ml_user', String(u)); };
-        frag.appendChild(d);
-      });
-      if (!data.length) {
-        const empty = document.createElement('div'); empty.className='empty-center'; empty.textContent='No users'; frag.appendChild(empty);
-      }
-      list.appendChild(frag);
-    }
-    render('');
-    // Open/close behavior
-    btn.addEventListener('click', () => {
-      menu.hidden = !menu.hidden;
-      btn.classList.toggle('open', !menu.hidden);
-      btn.setAttribute('aria-expanded', String(!menu.hidden));
-      if (!menu.hidden) { search.focus(); }
-    });
-    document.addEventListener('click', (e) => {
-      if (!menu.contains(e.target) && e.target !== btn) {
-        menu.hidden = true;
-        btn.classList.remove('open');
-        btn.setAttribute('aria-expanded', 'false');
-      }
-    });
-    search.addEventListener('input', () => render(search.value));
-    // Restore last user
-    const last = localStorage.getItem('ml_user'); if (last) { btn.dataset.user = last; btn.textContent = `${last} ▾`; }
-  } catch {}
+function currentUserId() {
+  const uid = (localStorage.getItem('ml_user') || 'guest').trim();
+  return uid || 'guest';
+}
+
+function updateGreeting() {
+  const greet = document.getElementById('user-greeting');
+  if (!greet) return;
+  greet.textContent = `Hi, ${currentUserId()}`;
+}
+
+// Set greeting immediately on script load to avoid a guest flash
+updateGreeting();
+
+function currentPosterSize() {
+  const val = localStorage.getItem('ml_poster_quality');
+  return val || 'w342';
+}
+
+function applyItemLayout() {
+  const stored = localStorage.getItem('ml_items_per_row');
+  const n = Math.max(3, Math.min(10, Number(stored) || 6));
+  document.documentElement.style.setProperty('--items-per-row', n);
+}
+
+function applyTheme() {
+  const t = (localStorage.getItem('ml_theme') || 'dark').trim();
+  const theme = t === 'light' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', theme);
 }
 
 async function renderGenre(genre) {
@@ -200,10 +217,13 @@ async function renderGenre(genre) {
 
 async function handleUserForm() {
   const form = $('#user-form');
+  const recommendBtn = document.getElementById('recommend-btn');
+  if (recommendBtn) {
+    recommendBtn.addEventListener('click', () => form.requestSubmit());
+  }
   form.addEventListener('submit', async (ev) => {
     ev.preventDefault();
-    const userBtn = document.getElementById('userBtn');
-    const userId = userBtn ? String((userBtn.dataset.user||'').trim()) : '';
+    const userId = (localStorage.getItem('ml_user') || '').trim();
     const topN = 20;
     const genres = $('#genres').value.trim();
     const yearFromEl = document.getElementById('yearFrom');
@@ -241,40 +261,118 @@ async function handleUserForm() {
 
 async function postersFor(items) {
   try {
-    const ids = items.slice(0, 12).map((m) => m.movieId).filter(Boolean);
+    const ids = items.slice(0, 20).map((m) => m.movieId).filter(Boolean);
     if (!ids.length) return {};
-    return await fetchJSON(`/posters?movieIds=${encodeURIComponent(ids.join(','))}`);
+    const size = currentPosterSize();
+    const params = new URLSearchParams({ movieIds: ids.join(','), size });
+    return await fetchJSON(`/posters?${params.toString()}`);
   } catch {
     return {};
   }
 }
 
-// Populate year range selects from API /years
+// Dual-thumb year slider (custom) using a single track
 async function initYearSelectors() {
-  const yfrom = document.getElementById('yearFrom');
-  const yto = document.getElementById('yearTo');
-  if (!yfrom || !yto) return;
+  const hiddenFrom = document.getElementById('yearFrom');
+  const hiddenTo = document.getElementById('yearTo');
+  const slider = document.getElementById('year-slider');
+  const fill = document.getElementById('year-range-fill');
+  const thumbFrom = document.getElementById('year-thumb-from');
+  const thumbTo = document.getElementById('year-thumb-to');
+  const label = document.getElementById('year-range-label');
+  const labelFrom = document.getElementById('year-range-from');
+  const labelTo = document.getElementById('year-range-to');
+  if (!hiddenFrom || !hiddenTo || !slider || !fill || !thumbFrom || !thumbTo || !label || !labelFrom || !labelTo) return;
+
+  let minYear = 1900;
+  let maxYear = new Date().getFullYear();
   try {
     const data = await fetchJSON('/years');
-    const years = Array.isArray(data.years) ? data.years : [];
-    function fill() {
-      yfrom.innerHTML=''; yto.innerHTML='';
-      const optAllFrom = document.createElement('option'); optAllFrom.value=''; optAllFrom.textContent='From'; yfrom.appendChild(optAllFrom);
-      const optAllTo = document.createElement('option'); optAllTo.value=''; optAllTo.textContent='To'; yto.appendChild(optAllTo);
-      years.forEach(y=>{ const o=document.createElement('option'); o.value=String(y); o.textContent=String(y); yfrom.appendChild(o.cloneNode(true)); yto.appendChild(o); });
-    }
-    fill();
-    function clampTo() {
-      const fv = parseInt(yfrom.value||'0',10);
-      Array.from(yto.options).forEach((o,i)=>{ if (i===0) return; o.disabled = !!yfrom.value && parseInt(o.value,10) < fv; });
-    }
-    function clampFrom() {
-      const tv = parseInt(yto.value||'0',10);
-      Array.from(yfrom.options).forEach((o,i)=>{ if (i===0) return; o.disabled = !!yto.value && parseInt(o.value,10) > tv; });
-    }
-    yfrom.addEventListener('change', clampTo);
-    yto.addEventListener('change', clampFrom);
-  } catch {}
+    if (Number.isFinite(data.min)) minYear = data.min;
+    if (Number.isFinite(data.max)) maxYear = data.max;
+  } catch {
+    // fall back to defaults
+  }
+
+  let fromVal = minYear;
+  let toVal = maxYear;
+
+  const clamp = (v) => Math.min(maxYear, Math.max(minYear, Math.round(v)));
+  const pct = (v) => ((v - minYear) / (maxYear - minYear)) * 100;
+
+  function render() {
+    const isFullRange = fromVal === minYear && toVal === maxYear;
+    hiddenFrom.value = isFullRange ? '' : String(fromVal);
+    hiddenTo.value = isFullRange ? '' : String(toVal);
+    label.textContent = isFullRange ? 'All years' : 'Custom range';
+    labelFrom.textContent = String(fromVal);
+    labelTo.textContent = String(toVal);
+    const fromPct = pct(fromVal);
+    const toPct = pct(toVal);
+    fill.style.left = `${fromPct}%`;
+    fill.style.width = `${toPct - fromPct}%`;
+    thumbFrom.style.left = `${fromPct}%`;
+    thumbTo.style.left = `${toPct}%`;
+  }
+
+  function setFrom(newVal) {
+    fromVal = clamp(newVal);
+    if (fromVal > toVal) toVal = fromVal;
+    render();
+  }
+  function setTo(newVal) {
+    toVal = clamp(newVal);
+    if (toVal < fromVal) fromVal = toVal;
+    render();
+  }
+
+  function clientXToValue(clientX) {
+    const rect = slider.getBoundingClientRect();
+    const ratio = (clientX - rect.left) / rect.width;
+    return clamp(minYear + ratio * (maxYear - minYear));
+  }
+
+  let active = null;
+  function onPointerMove(ev) {
+    if (!active) return;
+    ev.preventDefault();
+    const val = clientXToValue(ev.clientX);
+    if (active === 'from') setFrom(val); else setTo(val);
+  }
+  function stopPointer() {
+    active = null;
+    window.removeEventListener('pointermove', onPointerMove);
+    window.removeEventListener('pointerup', stopPointer);
+  }
+  function startPointer(which, ev) {
+    active = which;
+    onPointerMove(ev);
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', stopPointer);
+  }
+
+  thumbFrom.addEventListener('pointerdown', (ev) => { ev.preventDefault(); thumbFrom.setPointerCapture(ev.pointerId); startPointer('from', ev); });
+  thumbTo.addEventListener('pointerdown', (ev) => { ev.preventDefault(); thumbTo.setPointerCapture(ev.pointerId); startPointer('to', ev); });
+
+  // Keyboard support
+  function handleKey(ev, which) {
+    const delta = (ev.shiftKey ? 10 : 1) * (ev.key === 'ArrowRight' || ev.key === 'ArrowUp' ? 1 : ev.key === 'ArrowLeft' || ev.key === 'ArrowDown' ? -1 : 0);
+    if (delta === 0) return;
+    ev.preventDefault();
+    if (which === 'from') setFrom(fromVal + delta); else setTo(toVal + delta);
+  }
+  thumbFrom.addEventListener('keydown', (ev) => handleKey(ev, 'from'));
+  thumbTo.addEventListener('keydown', (ev) => handleKey(ev, 'to'));
+
+  // Click on track moves closest thumb
+  slider.addEventListener('pointerdown', (ev) => {
+    const val = clientXToValue(ev.clientX);
+    const distFrom = Math.abs(val - fromVal);
+    const distTo = Math.abs(val - toVal);
+    if (distFrom <= distTo) setFrom(val); else setTo(val);
+  });
+
+  render();
 }
 
 // Build genre chips and year preset chips under the Recommendations panel
@@ -287,7 +385,14 @@ async function initUserFilters() {
       let genres = Array.isArray(gsrc) ? gsrc.slice() : [];
       const seen2 = new Set();
       genres = genres.filter(g => { const k = g.toLowerCase(); if (seen2.has(k)) return false; seen2.add(k); return true; });
-      const idx = genres.findIndex(g => g.toLowerCase() === '(no genre listed)');
+      const isNone = (g) => g.toLowerCase().includes('no genre');
+      genres.sort((a, b) => {
+        const an = isNone(a), bn = isNone(b);
+        if (an && !bn) return 1;
+        if (!an && bn) return -1;
+        return a.localeCompare(b);
+      });
+      const idx = genres.findIndex(isNone);
       if (idx >= 0) { const [t] = genres.splice(idx, 1); genres.push(t); }
       const picked = new Set();
       genres.slice(0, 20).forEach((g) => {
@@ -308,31 +413,7 @@ async function initUserFilters() {
     }
   }
 
-  // Year preset chips write to #yearFrom and #yearTo inputs
-  const yp = document.getElementById('year-presets');
-  if (yp) {
-    const presets = [
-      {label: '1980s', from: 1980, to: 1989},
-      {label: '1990s', from: 1990, to: 1999},
-      {label: '2000s', from: 2000, to: 2009},
-      {label: '2010s', from: 2010, to: 2019},
-      {label: '2020s', from: 2020, to: 2029},
-      {label: 'All', from: '', to: ''},
-    ];
-    presets.forEach((p) => {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'chip';
-      b.textContent = p.label;
-      b.onclick = () => {
-        const yf = document.getElementById('yearFrom');
-        const yt = document.getElementById('yearTo');
-        if (yf) yf.value = p.from;
-        if (yt) yt.value = p.to;
-      };
-      yp.appendChild(b);
-    });
-  }
+  // Year presets removed in favor of dual range sliders
 }
 
 function handleBrowse() {
@@ -362,41 +443,43 @@ function handleBrowse() {
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
-  await initUsersSelect();
+  updateGreeting();
+  applyTheme();
+  applyItemLayout();
+  // Load genres FIRST before other UI
+  await loadGenres();
   handleUserForm();
   initUserFilters();
   initYearSelectors();
   handleBrowse();
   await loadPopular();
   await loadMostClicked();
-  await loadGenres();
   renderMyList();
   enableKeyboardScroll();
-  // Restore last user
-  // handled in initUsersSelect
-  // View mode toggle: posters/list
-  const savedMode = localStorage.getItem('ml_mode');
-  if (savedMode === 'list') { document.body.classList.add('list-mode'); }
-  const modeBtn = document.getElementById('mode-toggle');
-  const syncIcon = () => { modeBtn.textContent = document.body.classList.contains('list-mode') ? '📄' : '🖼️'; };
-  syncIcon();
-  modeBtn.addEventListener('click', () => {
-    document.body.classList.toggle('list-mode');
-    const isList = document.body.classList.contains('list-mode');
-    localStorage.setItem('ml_mode', isList ? 'list' : 'posters');
-    syncIcon();
-  });
   // TopN control
   initTopN();
 });
 
 // Favorites (localStorage)
-const FAV_KEY = 'ml_favorites';
+const FAV_KEY_PREFIX = 'ml_favorites_';
+function favoritesKey() { return `${FAV_KEY_PREFIX}${currentUserId()}`; }
 function getFavorites() {
-  try { return new Set(JSON.parse(localStorage.getItem(FAV_KEY) || '[]')); } catch { return new Set(); }
+  try { return new Set(JSON.parse(localStorage.getItem(favoritesKey()) || '[]')); } catch { return new Set(); }
 }
 function saveFavorites(set) {
-  localStorage.setItem(FAV_KEY, JSON.stringify(Array.from(set)));
+  localStorage.setItem(favoritesKey(), JSON.stringify(Array.from(set)));
+}
+function refreshFavoriteButtons() {
+  const favs = getFavorites();
+  $$('.card').forEach((cardEl) => {
+    const mid = cardEl.dataset.mid;
+    if (!mid) return;
+    const btn = cardEl.querySelector('.fav');
+    if (!btn) return;
+    const active = favs.has(Number(mid)) || favs.has(mid);
+    btn.classList.toggle('active', active);
+    btn.textContent = active ? '❤' : '♡';
+  });
 }
 async function renderMyList() {
   const row = document.getElementById('mylist-row');
@@ -525,7 +608,153 @@ function hideTooltip() { if (tooltip) tooltip.hidden = true; }
 // Feedback helper
 async function sendFeedback(action, movieId) {
   try {
-    const uid = localStorage.getItem('ml_user') || 'guest';
+    const uid = currentUserId();
     await fetch('/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: uid, movieId, action }) });
   } catch {}
+}
+
+// Modal functionality
+function openModal(modalId) {
+  const modal = document.getElementById(modalId);
+  if (modal) modal.hidden = false;
+}
+
+function closeModal(modalId) {
+  const modal = document.getElementById(modalId);
+  if (modal) modal.hidden = true;
+}
+
+// Settings Modal
+const settingsBtn = document.getElementById('settings-btn');
+const saveSettingsBtn = document.getElementById('save-settings');
+if (settingsBtn) {
+  settingsBtn.addEventListener('click', () => {
+    openModal('settings-modal');
+    // Load saved settings
+    const posterQuality = localStorage.getItem('ml_poster_quality') || 'w342';
+    const itemsPerRow = localStorage.getItem('ml_items_per_row') || '6';
+    const autoPlay = localStorage.getItem('ml_auto_play') === 'true';
+    const theme = localStorage.getItem('ml_theme') || 'dark';
+    
+    document.getElementById('poster-quality').value = posterQuality;
+    document.getElementById('items-per-row').value = itemsPerRow;
+    document.getElementById('auto-play-trailers').checked = autoPlay;
+    const themeSelect = document.getElementById('theme-select');
+    if (themeSelect) themeSelect.value = theme;
+  });
+}
+
+if (saveSettingsBtn) {
+  saveSettingsBtn.addEventListener('click', () => {
+    const posterQuality = document.getElementById('poster-quality').value;
+    const itemsPerRow = document.getElementById('items-per-row').value;
+    const autoPlay = document.getElementById('auto-play-trailers').checked;
+    const themeSelect = document.getElementById('theme-select');
+    const theme = themeSelect ? themeSelect.value : 'dark';
+    
+    localStorage.setItem('ml_poster_quality', posterQuality);
+    localStorage.setItem('ml_items_per_row', itemsPerRow);
+    localStorage.setItem('ml_auto_play', autoPlay);
+    localStorage.setItem('ml_theme', theme);
+    
+    // Apply items per row setting
+    applyItemLayout();
+    applyTheme();
+    
+    closeModal('settings-modal');
+    console.log('Settings saved');
+  });
+}
+
+// Login Modal
+const authBtn = document.getElementById('auth-btn');
+const loginBtn = document.getElementById('login-btn');
+const logoutBtn = document.getElementById('logout-btn');
+
+function hideAllModals() {
+  $$('.modal').forEach(m => m.hidden = true);
+}
+
+if (authBtn) {
+  authBtn.addEventListener('click', () => {
+    hideAllModals();
+    openModal('login-modal');
+    const currentUser = localStorage.getItem('ml_user') || 'guest';
+    document.getElementById('current-user').textContent = currentUser;
+    document.getElementById('user-id-input').value = currentUser === 'guest' ? '' : currentUser;
+    updateGreeting();
+  });
+}
+
+// Ensure all modals are hidden on load
+document.addEventListener('DOMContentLoaded', hideAllModals);
+
+if (loginBtn) {
+  loginBtn.addEventListener('click', () => {
+    const userId = document.getElementById('user-id-input').value.trim();
+    if (userId) {
+      localStorage.setItem('ml_user', userId);
+      document.getElementById('current-user').textContent = userId;
+      closeModal('login-modal');
+      updateGreeting();
+      renderMyList();
+      refreshFavoriteButtons();
+    } else {
+      alert('Please enter a valid user ID');
+    }
+  });
+}
+
+if (logoutBtn) {
+  logoutBtn.addEventListener('click', () => {
+    localStorage.setItem('ml_user', 'guest');
+    document.getElementById('current-user').textContent = 'guest';
+    document.getElementById('user-id-input').value = '';
+    closeModal('login-modal');
+    updateGreeting();
+    renderMyList();
+    refreshFavoriteButtons();
+  });
+}
+
+// Close modal when clicking close button
+$$('.modal-close').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const modalId = e.currentTarget.dataset.modal;
+    if (modalId) closeModal(modalId);
+  });
+});
+
+// Close modal when clicking outside
+// Prevent clicks on modal content from closing the modal
+$$('.modal-content').forEach(content => {
+  content.addEventListener('click', (e) => {
+    e.stopPropagation();
+  });
+});
+
+// Close modal when clicking outside
+$$('.modal').forEach(modal => {
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal || e.target.classList.contains('modal')) {
+      modal.hidden = true;
+    }
+  });
+});
+
+// ESC key to close modals
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    $$('.modal').forEach(m => m.hidden = true);
+  }
+});
+
+// Analytics button
+const analyticsBtn = document.getElementById('analytics-btn');
+if (analyticsBtn) {
+  analyticsBtn.addEventListener('click', () => {
+    window.location.href = '/ui/analytics.html';
+  });
 }

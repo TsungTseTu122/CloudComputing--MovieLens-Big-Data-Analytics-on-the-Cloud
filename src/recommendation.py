@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import dataclass
+import os
+import sys
 from typing import Dict, Iterable, Optional
 import math
 
@@ -31,9 +33,23 @@ class TrainingResult:
 
 
 def build_spark_session(app_name: str = "MovieLensRecommender", master: Optional[str] = None) -> SparkSession:
+    # On Windows, PySpark worker processes sometimes end up launching a different
+    # Python than the one running this code (e.g., Microsoft Store Python), which
+    # can crash workers and surface as "Connection reset" / WinError 10038.
+    # Setting these env vars before creating SparkSession is the most reliable.
+    python_exe = sys.executable
+    os.environ["PYSPARK_PYTHON"] = python_exe
+    os.environ["PYSPARK_DRIVER_PYTHON"] = python_exe
+
     builder = SparkSession.builder.appName(app_name)
     if master:
         builder = builder.master(master)
+    # Force executors/workers to use the same Python interpreter as the driver.
+    # This prevents Windows from accidentally launching the Microsoft Store Python
+    # (or another global Python) which often causes PySpark worker crashes.
+    builder = builder.config("spark.pyspark.python", python_exe)
+    builder = builder.config("spark.pyspark.driver.python", python_exe)
+    builder = builder.config("spark.executorEnv.PYSPARK_PYTHON", python_exe)
     return builder.getOrCreate()
 
 
@@ -308,7 +324,8 @@ def _write_artifacts(
         .join(movies_meta, on="movieId", how="left")
         .select("userId", "movieId", "score", "title", "genres", "year")
     )
-    exploded.coalesce(1).write.mode("overwrite").parquet(f"{out_dir}/user_topn")
+    # For large datasets, avoid forcing a single file; allow multiple part files
+    exploded.write.mode("overwrite").parquet(f"{out_dir}/user_topn")
 
     # popularity (global)
     pop = (
@@ -317,12 +334,13 @@ def _write_artifacts(
         .join(movies_meta, on="movieId", how="left")
         .select("movieId", "pop_score", "title", "genres", "year")
     )
-    pop.coalesce(1).write.mode("overwrite").parquet(f"{out_dir}/popularity")
+    # Write as partitioned parquet files to avoid huge shuffles
+    pop.write.mode("overwrite").parquet(f"{out_dir}/popularity")
 
     # item_factors with movieId
     item_factors = tr.als_model.itemFactors.withColumnRenamed("id", "movieIndexInt")
     item_factors = item_factors.join(items_df, on="movieIndexInt", how="inner").select("movieId", "features")
-    item_factors.coalesce(1).write.mode("overwrite").parquet(f"{out_dir}/item_factors")
+    item_factors.write.mode("overwrite").parquet(f"{out_dir}/item_factors")
 
 
 def parse_args(args: Optional[Iterable[str]] = None) -> argparse.Namespace:

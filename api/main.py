@@ -16,6 +16,29 @@ from pydantic import BaseModel
 
 PRECOMPUTE_DIR = os.getenv("PRECOMPUTE_DIR", "outputs")
 TMDB_API_KEY = os.getenv("TMDB_API_KEY")
+POSTER_CACHE_FILE = os.path.join(PRECOMPUTE_DIR, "poster_cache.json")
+
+
+def _load_poster_cache() -> dict[str, str]:
+    try:
+        if os.path.exists(POSTER_CACHE_FILE):
+            with open(POSTER_CACHE_FILE, "r", encoding="utf-8") as fh:
+                data = json.load(fh)
+                if isinstance(data, dict):
+                    return {str(k): str(v) for k, v in data.items()}
+    except Exception:
+        pass
+    return {}
+
+
+def _save_poster_cache(cache: dict[str, str]) -> None:
+    try:
+        os.makedirs(PRECOMPUTE_DIR, exist_ok=True)
+        with open(POSTER_CACHE_FILE, "w", encoding="utf-8") as fh:
+            json.dump(cache, fh, ensure_ascii=False)
+    except Exception:
+        # Cache persistence is best effort
+        pass
 
 
 def _load_parquet(path: str) -> pd.DataFrame:
@@ -42,7 +65,31 @@ def _load_parquet(path: str) -> pd.DataFrame:
 async def lifespan(app: FastAPI):
     # Load data on startup
     load_data()
+    # Pre-compute analytics
+    compute_analytics()
+    # Pre-compute genres list
+    _precompute_genres()
     yield
+
+
+def _precompute_genres() -> None:
+    """Pre-compute and cache genre list at startup."""
+    try:
+        movies = app.state.movies
+        if movies.empty:
+            app.state.genres_cache = []
+            return
+        def split_genres(s: str) -> list[str]:
+            if not isinstance(s, str):
+                return []
+            return [g.strip() for g in s.replace("|", ",").split(",") if g.strip()]
+        all_genres: set[str] = set()
+        for g in movies["genres"].dropna().tolist():
+            for token in split_genres(g):
+                all_genres.add(token)
+        app.state.genres_cache = sorted(all_genres)
+    except Exception:
+        app.state.genres_cache = []
 
 
 app = FastAPI(title="MovieLens Recommender API", version="0.1.0", lifespan=lifespan)
@@ -59,6 +106,7 @@ def load_data() -> None:
     app.state.user_topn = _load_parquet("user_topn")
     app.state.popularity = _load_parquet("popularity")
     app.state.movies = _load_parquet("movies_meta")
+    app.state.poster_cache = _load_poster_cache()
     factors = _load_parquet("item_factors")
     if not factors.empty:
         # Precompute normalized vectors for cosine
@@ -171,20 +219,13 @@ def popular(topN: int = 10, genres: Optional[str] = None) -> List[dict]:
 
 @app.get("/genres")
 def list_genres() -> List[str]:
-    movies = app.state.movies
-    if movies.empty:
-        return []
-    # Split pipe-delimited genres if present, else single token
-    def split_genres(s: str) -> list[str]:
-        if not isinstance(s, str):
-            return []
-        return [g.strip() for g in s.replace("|", ",").split(",") if g.strip()]
-
-    all_genres: set[str] = set()
-    for g in movies["genres"].dropna().tolist():
-        for token in split_genres(g):
-            all_genres.add(token)
-    return sorted(all_genres)
+    """Return cached genres list (pre-computed at startup)."""
+    cache = getattr(app.state, "genres_cache", None)
+    if cache is not None:
+        return cache
+    # Fallback if not pre-computed
+    _precompute_genres()
+    return getattr(app.state, "genres_cache", [])
 
 
 @app.get("/favicon.ico")
@@ -198,6 +239,16 @@ def browse_movies(topN: int = 50, genres: Optional[str] = None, year_from: Optio
     movies = app.state.movies
     if movies.empty:
         return []
+    
+    # Cache genre-only queries (no year/search filters)
+    if genres and not year_from and not year_to and not q and topN in [50, 200]:
+        cache_key = (genres, topN)
+        cache = getattr(app.state, "genre_query_cache", {})
+        now = time.time()
+        cached = cache.get(cache_key)
+        if cached and (now - cached[0] < 3600):  # 1 hour TTL
+            return cached[1]
+    
     df = movies.copy()
     if genres:
         glist = {g.strip() for g in genres.split(",") if g.strip()}
@@ -211,7 +262,7 @@ def browse_movies(topN: int = 50, genres: Optional[str] = None, year_from: Optio
         if plain:
             mask = df["genres"].fillna("").apply(lambda s: any(g in s for g in plain))
         if wants_none:
-            mask = mask | df["genres"].isna() | (df["genres"].astype(str).str.strip() == "") | (df["genres"].astype(str).str.contains("\(no genres listed\)", case=False, na=False))
+            mask = mask | df["genres"].isna() | (df["genres"].astype(str).str.strip() == "") | (df["genres"].astype(str).str.contains(r"\(no genres listed\)", case=False, na=False))
         df = df[mask]
     if year_from is not None:
         df = df[df["year"].fillna(0) >= year_from]
@@ -225,22 +276,73 @@ def browse_movies(topN: int = 50, genres: Optional[str] = None, year_from: Optio
     if not pop.empty and "pop_score" in pop.columns:
         pop_small = pop[["movieId", "pop_score"]]
         df = df.merge(pop_small, on="movieId", how="left").sort_values("pop_score", ascending=False)
-    return df.head(topN).to_dict(orient="records")
+    
+    result = df.head(topN).to_dict(orient="records")
+    
+    # Cache genre-only queries
+    if genres and not year_from and not year_to and not q and topN in [50, 200]:
+        cache_key = (genres, topN)
+        cache = getattr(app.state, "genre_query_cache", {})
+        cache[cache_key] = (time.time(), result)
+        setattr(app.state, "genre_query_cache", cache)
+    
+    return result
 
 
 @app.get("/posters")
-def posters(movieIds: str) -> dict:
+def posters(movieIds: str, size: str = "w342") -> dict:
     ids = [m.strip() for m in movieIds.split(",") if m.strip()]
     movies = app.state.movies
-    if not ids or movies.empty or not TMDB_API_KEY:
+    if not ids or movies.empty:
         return {}
-    cache: dict = getattr(app.state, "poster_cache", {})
-    setattr(app.state, "poster_cache", cache)
+
+    allowed_sizes = {"w185", "w342", "w500", "original"}
+    poster_size = size if size in allowed_sizes else "w342"
+
+    cache: dict[str, str] = getattr(app.state, "poster_cache", None) or {}
+    if not cache:
+        cache = _load_poster_cache()
+        setattr(app.state, "poster_cache", cache)
     out: dict[str, str] = {}
-    for mid in ids[:100]:
-        if mid in cache:
-            out[mid] = cache[mid]
-            continue
+
+    updated = False
+
+    # If no TMDB key, still serve anything already cached
+    if not TMDB_API_KEY:
+        for mid in ids[:50]:
+            cached = cache.get(mid)
+            if not cached:
+                continue
+            poster_path = None
+            if isinstance(cached, str):
+                if cached.startswith("http") and "/t/p/" in cached:
+                    _, _, tail = cached.partition("/t/p/")
+                    _, _, path_tail = tail.partition("/")
+                    poster_path = "/" + path_tail if path_tail else None
+                elif cached.startswith("/"):
+                    poster_path = cached
+            if poster_path:
+                out[mid] = f"https://image.tmdb.org/t/p/{poster_size}{poster_path}"
+        return out
+    for mid in ids[:50]:
+        cached = cache.get(mid)
+        if cached:
+            # cached may be a path or a full URL from previous runs
+            poster_path = None
+            if isinstance(cached, str):
+                if cached.startswith("http") and "/t/p/" in cached:
+                    _, _, tail = cached.partition("/t/p/")
+                    _, _, path_tail = tail.partition("/")
+                    poster_path = "/" + path_tail if path_tail else None
+                elif cached.startswith("/"):
+                    poster_path = cached
+            if poster_path:
+                out[mid] = f"https://image.tmdb.org/t/p/{poster_size}{poster_path}"
+                continue
+            else:
+                out[mid] = cached
+                continue
+
         row = movies[movies.movieId == mid].head(1)
         if row.empty:
             continue
@@ -249,7 +351,7 @@ def posters(movieIds: str) -> dict:
         try:
             params = {"api_key": TMDB_API_KEY, "query": title}
             if pd.notna(year):
-                params["year"] = int(year)
+                params["year"] = str(int(year))
             r = requests.get("https://api.themoviedb.org/3/search/movie", params=params, timeout=3)
             if r.ok:
                 js = r.json()
@@ -260,11 +362,13 @@ def posters(movieIds: str) -> dict:
                         poster_path = cand["poster_path"]
                         break
                 if poster_path:
-                    url = f"https://image.tmdb.org/t/p/w342{poster_path}"
-                    cache[mid] = url
-                    out[mid] = url
+                    cache[mid] = poster_path
+                    out[mid] = f"https://image.tmdb.org/t/p/{poster_size}{poster_path}"
+                    updated = True
         except Exception:
             continue
+    if updated:
+        _save_poster_cache(cache)
     return out
 
 
@@ -482,4 +586,160 @@ def feedback_summary(
     cache[cache_key] = (now, result)
     setattr(app.state, "pop_cache", cache)
     return result
+
+
+def compute_analytics() -> None:
+    """Pre-compute analytics on startup and cache."""
+    try:
+        movies = app.state.movies
+        popularity = app.state.popularity
+        # Stable path for ratings.csv regardless of CWD or PRECOMPUTE_DIR
+        repo_root = os.path.abspath(os.path.dirname(__file__) + "/..")
+        ratings_path = os.path.join(repo_root, "data", "movielens", "32m", "ratings.csv")
+
+        stats = {
+            "total_movies": len(movies) if not movies.empty else 0,
+            "total_ratings": 0,
+            "unique_users": 0,
+            "avg_rating": 0.0,
+            "top_genres": [],
+            "rating_distribution": [],
+            "movies_by_year": [],
+            "top_rated_movies": [],
+            "top_users": [],
+            "user_activity_by_month": []
+        }
+
+        if not movies.empty and "genres" in movies.columns:
+            genre_counts: dict[str, int] = {}
+            for genres_str in movies["genres"].dropna():
+                for genre in str(genres_str).split("|"):
+                    genre = genre.strip()
+                    if genre and genre != "(no genres listed)":
+                        genre_counts[genre] = genre_counts.get(genre, 0) + 1
+            top_genres = sorted(genre_counts.items(), key=lambda x: x[1], reverse=True)[:15]
+            stats["top_genres"] = [{"genre": g, "count": c} for g, c in top_genres]
+
+        if not movies.empty and "year" in movies.columns:
+            year_counts = movies.groupby("year").size().reset_index(name="count")
+            year_counts = year_counts.dropna().sort_values("year")
+            year_counts = year_counts[year_counts["year"] >= 1900]
+            year_counts = year_counts[year_counts["year"] <= 2030]
+            stats["movies_by_year"] = [
+                {"year": int(row["year"]), "count": int(row["count"])}
+                for _, row in year_counts.iterrows()
+            ]
+
+        # Load ratings.csv sample to compute rating statistics
+        try:
+            if os.path.exists(ratings_path):
+                # Read a larger but bounded sample with selected columns to improve chart density
+                ratings_sample = pd.read_csv(
+                    ratings_path,
+                    nrows=1000000,
+                    usecols=["userId", "movieId", "rating", "timestamp"],
+                )
+                if not ratings_sample.empty:
+                    # Basic stats from ratings
+                    stats["total_ratings"] = int(len(ratings_sample))
+                    # Ensure userId is treated as string consistently
+                    stats["unique_users"] = int(ratings_sample["userId"].astype(str).nunique())
+                    
+                    if "rating" in ratings_sample.columns:
+                        stats["avg_rating"] = float(ratings_sample["rating"].mean())
+                        
+                        # Rating distribution
+                        rating_dist_df = ratings_sample["rating"].value_counts().sort_index().reset_index()
+                        rating_dist_df.columns = ["rating", "count"]
+                        dist_rows = []
+                        for _, row in rating_dist_df.iterrows():
+                            rv = float(row["rating"])
+                            if np.isnan(rv):
+                                rv = 0.0
+                            dist_rows.append({"rating": rv, "count": int(row["count"])})
+                        stats["rating_distribution"] = dist_rows
+                    
+                    # Top rated movies by count
+                    if "movieId" in ratings_sample.columns:
+                        # Coerce types for stability
+                        ratings_sample["movieId"] = ratings_sample["movieId"].astype(str)
+                        movie_counts = ratings_sample.groupby("movieId", as_index=False).agg(
+                            rating_count=("rating", "count"),
+                            avg_rating=("rating", "mean")
+                        )
+                        # Sort by count desc, then by avg_rating desc for tie-breaking
+                        top_movies = movie_counts.sort_values(["rating_count", "avg_rating"], ascending=[False, False]).head(20)
+                        
+                        # Merge with movie titles
+                        if not movies.empty and "movieId" in movies.columns:
+                            # Ensure consistent type for merge
+                            mv = movies.copy()
+                            mv["movieId"] = mv["movieId"].astype(str)
+                            top_movies = top_movies.merge(mv[["movieId", "title"]], on="movieId", how="left")
+                        
+                        stats["top_rated_movies"] = [
+                            {
+                                "title": (row.get("title") if isinstance(row.get("title"), str) and row.get("title") else f"Movie {row.get('movieId', 'Unknown')}"),
+                                "rating_count": int(row.get("rating_count", 0)),
+                                "avg_rating": float(row.get("avg_rating", 0)),
+                            }
+                            for _, row in top_movies.iterrows()
+                        ]
+                    
+                    # User-based analytics
+                    if "userId" in ratings_sample.columns:
+                        ratings_sample["userId"] = ratings_sample["userId"].astype(str)
+                        user_rating_counts = ratings_sample["userId"].value_counts().sort_values(ascending=False).head(20)
+                        stats["top_users"] = [
+                            {"userId": str(uid), "rating_count": int(count)}
+                            for uid, count in user_rating_counts.items()
+                        ]
+                    
+                    # User activity over time (if timestamp exists)
+                    if "timestamp" in ratings_sample.columns:
+                        # Robust datetime conversion; coerce errors to NaT
+                        dt = pd.to_datetime(ratings_sample["timestamp"], unit="s", errors="coerce")
+                        ratings_sample["date"] = dt
+                        # Drop rows with invalid dates to avoid downstream issues
+                        valid = ratings_sample.dropna(subset=["date"]).copy()
+                        # Use strftime to avoid Pylance warnings about to_period
+                        valid["month"] = valid["date"].dt.strftime("%Y-%m")  # type: ignore[attr-defined]
+                        monthly_activity = valid.groupby("month", as_index=False).size()
+                        monthly_activity.rename(columns={"size": "count"}, inplace=True)
+                        # Sort by month ascending and keep last 24
+                        monthly_activity = monthly_activity.sort_values("month")
+                        tail = monthly_activity.tail(24)
+                        stats["user_activity_by_month"] = [
+                            {"month": row["month"], "count": int(row["count"])}
+                            for _, row in tail.iterrows()
+                        ]
+        except Exception as e:
+            print(f"Error loading ratings: {e}")
+
+        app.state.analytics_cache = stats
+    except Exception as exc:
+        app.state.analytics_cache = {
+            "total_movies": 0,
+            "total_ratings": 0,
+            "unique_users": 0,
+            "avg_rating": 0.0,
+            "top_genres": [],
+            "rating_distribution": [],
+            "movies_by_year": [],
+            "top_rated_movies": [],
+            "top_users": [],
+            "user_activity_by_month": [],
+            "error": str(exc),
+        }
+
+
+@app.get("/analytics")
+def analytics() -> dict:
+    """Return cached dataset statistics and analysis data for the analytics page."""
+    cache = getattr(app.state, "analytics_cache", None)
+    if cache:
+        return cache
+    # Fallback if not pre-computed
+    compute_analytics()
+    return getattr(app.state, "analytics_cache", {})
 

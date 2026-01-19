@@ -9,6 +9,12 @@ __pycache__/
 # OS/editor
 .DS_Store
 Thumbs.db
+.vscode/
+
+# Local backups/temps
+*.backup
+*.orig
+*_tmp.*
 
 # Data artifacts
 data/movielens/

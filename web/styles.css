@@ -5,17 +5,40 @@
   --muted: #a1a1ad;
   --chip: #2a2c34;
   --accent: #e50914;
+  --items-per-row: 6;
+  --card-width: calc((100% - (var(--items-per-row) - 1) * 12px) / var(--items-per-row));
+}
+:root[data-theme="light"] {
+  --bg: #f6f7fb;
+  --panel: #ffffff;
+  --text: #16171d;
+  --muted: #4c4f5d;
+  --chip: #e7e9f1;
+  --accent: #e50914;
 }
 * { box-sizing: border-box; }
 body { margin: 0; font-family: Montserrat, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"; background: var(--bg); color: var(--text); }
 .header { position: sticky; top: 0; display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; background: linear-gradient(180deg, rgba(0,0,0,0.6), rgba(0,0,0,0)); z-index: 5; }
+.controls { display: flex; align-items: center; gap: 10px; }
+.user-greeting { color: var(--muted); font-weight: 600; min-width: 80px; text-align: right; }
+.year-range { background: #16171d; border: 1px solid #2a2c34; border-radius: 10px; padding: 12px 14px; position: relative; }
+.year-range-slider { position: relative; height: 32px; margin-top: 6px; }
+.year-range-track { position: absolute; inset: 50% 0 auto 0; height: 8px; border-radius: 999px; background: #d9d9df; transform: translateY(-50%); }
+.year-range-fill { position: absolute; height: 8px; background: var(--accent); border-radius: 999px; top: 50%; transform: translateY(-50%); left: 0; width: 100%; }
+.year-thumb { position: absolute; top: 50%; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); border: 2px solid #0f0f12; transform: translate(-50%, -50%); cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.35); }
+.year-thumb:focus { outline: 2px solid #fff; outline-offset: 2px; }
+.year-range input[type="range"] { width: 100%; accent-color: var(--accent); }
+.year-range-header { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 0.9rem; margin-bottom: 8px; }
+.year-range-values { color: var(--text); font-weight: 600; }
+.year-range-sliders { display: grid; grid-template-columns: 1fr; gap: 10px; }
+.year-range input[type="range"] { width: 100%; accent-color: var(--accent); }
 .brand { font-weight: 700; letter-spacing: 0.3px; color: #57c7ff; }
 .nav a { color: var(--muted); margin-left: 16px; text-decoration: none; }
 .nav a:hover { color: var(--text); }
 .container { padding: 10px 20px 40px; }
 .panel { margin: 18px 0 28px; }
 .panel h2 { margin: 10px 0 12px; font-size: 1.2rem; font-weight: 600; }
-.row { display: grid; grid-auto-flow: column; grid-auto-columns: 180px; gap: 12px; overflow-x: auto; padding-bottom: 8px; }
+.row { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(150px, var(--card-width)); gap: 12px; overflow-x: auto; padding-bottom: 8px; }
 .row::-webkit-scrollbar { height: 8px; }
 .row::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
 .card { background: var(--panel); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px; transition: transform 0.12s ease-in-out; min-height: 170px; }
@@ -25,6 +48,8 @@ body { margin: 0; font-family: Montserrat, system-ui, -apple-system, Segoe UI, R
 .card .fav.active { background: var(--accent); }
 .card { position: relative; }
 .meta .title { font-weight: 600; font-size: 0.95rem; }
+.subcontrols { display: flex; flex-direction: column; gap: 8px; }
+.subcontrols-row { margin-top: 4px; }
 .meta .sub { color: var(--muted); font-size: 0.8rem; }
 .badge { position: absolute; left: 6px; top: 6px; background: rgba(20,20,20,0.7); color: #ffd54f; font-weight: 600; border-radius: 6px; padding: 2px 6px; font-size: 0.72rem; }
 .poster.has-img { background-size: cover; background-position: center; font-size: 0; }
@@ -78,6 +103,7 @@ body { margin: 0; font-family: Montserrat, system-ui, -apple-system, Segoe UI, R
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
 .grid .card { min-height: 220px; }
 .grid .poster { height: 140px; }
+#genres.panel { display: none; }
 
 /* Pretty dropdown for user select */
 .dropdown { position: relative; display: inline-block; }
@@ -90,3 +116,24 @@ body { margin: 0; font-family: Montserrat, system-ui, -apple-system, Segoe UI, R
 .dropdown-list { max-height: 260px; overflow: auto; display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
 .dropdown-item { background: #1b1d24; color: var(--text); border: 1px solid #2a2c34; border-radius: 8px; padding: 8px 10px; cursor: pointer; text-align: center; }
 .dropdown-item:hover, .dropdown-item.active { background: #2a2c34; }
+
+/* Modal Styles */
+.modal { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 100; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+.modal[hidden] { display: none !important; }
+.modal-content { background: var(--panel); border-radius: 12px; max-width: 500px; width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,0.6); }
+.modal-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; border-bottom: 1px solid #2a2c34; }
+.modal-header h2 { margin: 0; font-size: 1.3rem; }
+.modal-close { background: transparent; border: none; color: var(--muted); font-size: 2rem; line-height: 1; cursor: pointer; padding: 0; width: 32px; height: 32px; }
+.modal-close:hover { color: var(--text); }
+.modal-body { padding: 24px; }
+.modal-footer { padding: 16px 24px; border-top: 1px solid #2a2c34; display: flex; justify-content: flex-end; gap: 12px; }
+.setting-group { margin-bottom: 20px; }
+.setting-group:last-child { margin-bottom: 0; }
+.setting-group label { display: block; color: var(--text); font-weight: 600; margin-bottom: 8px; }
+.setting-group input[type="text"], .setting-group select { width: 100%; background: #1a1b20; border: 1px solid #2a2c34; color: var(--text); border-radius: 6px; padding: 10px 12px; font-size: 1rem; }
+.setting-group input[type="checkbox"] { margin-right: 8px; }
+.help-text { color: var(--muted); font-size: 0.85rem; margin-top: 8px; }
+.btn-primary { background: var(--accent); color: #fff; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+.btn-primary:hover { background: #c30712; }
+.btn-secondary { background: transparent; color: var(--muted); border: 1px solid #2a2c34; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+.btn-secondary:hover { color: var(--text); border-color: #3a3c44; }
