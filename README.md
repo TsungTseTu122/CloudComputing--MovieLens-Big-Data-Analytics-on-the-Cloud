@@ -111,7 +111,9 @@ CloudComputing--MovieLens-Big-Data-Analytics-on-the-Cloud/
 
 4. **Web UI**
    - Netflix-style interface at `/ui`
+   - Personalized "For You (ALS)" panel when logged in; guest mode falls back to Popular
    - User selection, genre filtering, year range
+   - UI labels scores as `ALS` vs `Popular` (ALS scores are model predictions used for ranking and are not capped to 5)
    - Real-time poster loading from TMDB API
 
 ---

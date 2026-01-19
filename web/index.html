@@ -37,6 +37,10 @@
       </section>
       <section id="user" class="panel">
         <h2>Recommendations</h2>
+        <div class="rec-legend" aria-label="Recommendation legend">
+          <div id="rec-mode" class="legend-item"></div>
+          <div class="legend-item legend-muted">Scores: ALS = predicted preference • Popular = global popularity</div>
+        </div>
         <form id="user-form" class="user-form">
           <input id="genres" type="hidden" />
           <input id="yearFrom" type="hidden" />
@@ -71,7 +75,7 @@
       </section>
 
       <section id="most-clicked" class="panel">
-        <h2>Most Popular</h2>
+        <h2>For You <span class="tag">ALS</span></h2>
         <div id="clicked-row" class="row"></div>
       </section>
 
@@ -167,12 +171,13 @@
           </div>
         </div>
         <div class="modal-footer">
+          <button id="sample-user-btn" class="btn-secondary">Pick Sample User</button>
           <button id="logout-btn" class="btn-secondary">Logout</button>
           <button id="login-btn" class="btn-primary">Login</button>
         </div>
       </div>
     </div>
 
-    <script src="/ui/app.js?v=15"></script>
+    <script src="/ui/app.js?v=21"></script>
   </body>
   </html>

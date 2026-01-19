@@ -38,6 +38,27 @@ body { margin: 0; font-family: Montserrat, system-ui, -apple-system, Segoe UI, R
 .container { padding: 10px 20px 40px; }
 .panel { margin: 18px 0 28px; }
 .panel h2 { margin: 10px 0 12px; font-size: 1.2rem; font-weight: 600; }
+.rec-legend {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: -6px 0 12px;
+}
+.legend-item {
+  color: var(--muted);
+  font-size: 0.74rem;
+  line-height: 1.25;
+  opacity: 0.9;
+}
+.legend-muted {
+  opacity: 0.75;
+}
+.panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.panel-head h2 { margin: 10px 0 8px; }
+.panel-meta { color: var(--muted); font-size: 0.85rem; margin-top: 6px; }
+.tag { display: inline-block; margin-left: 8px; padding: 2px 8px; border-radius: 999px; background: rgba(229, 9, 20, 0.16); color: var(--accent); font-size: 0.78rem; font-weight: 700; letter-spacing: 0.02em; vertical-align: middle; }
 .row { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(150px, var(--card-width)); gap: 12px; overflow-x: auto; padding-bottom: 8px; }
 .row::-webkit-scrollbar { height: 8px; }
 .row::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }

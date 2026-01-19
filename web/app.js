@@ -12,11 +12,14 @@ function card(node, movie) {
   const sub = [];
   if (movie.genres) sub.push(movie.genres);
   if (movie.year) sub.push(String(movie.year));
-  if (movie.score != null) sub.push(`★ ${movie.score.toFixed(2)}`);
+
+  const rawScore = (movie.score != null) ? Number(movie.score) : (movie.pop_score != null ? Number(movie.pop_score) : null);
+  const scoreLabel = (movie.score != null) ? 'ALS' : (movie.pop_score != null ? 'Popular' : '');
+  if (rawScore != null && Number.isFinite(rawScore)) sub.push(`${scoreLabel} ${rawScore.toFixed(2)}`);
   el.querySelector('.sub').textContent = sub.join(' • ');
   const badge = el.querySelector('.badge');
-  if (movie.score != null) {
-    badge.textContent = `★ ${Number(movie.score).toFixed(2)}`;
+  if (rawScore != null && Number.isFinite(rawScore)) {
+    badge.textContent = `${scoreLabel} ${rawScore.toFixed(2)}`;
     badge.hidden = false;
   }
   if (movie.poster) {
@@ -165,6 +168,20 @@ function currentUserId() {
   return uid || 'guest';
 }
 
+function effectiveUserId() {
+  const uid = (localStorage.getItem('ml_user') || '').trim();
+  if (!uid || uid.toLowerCase() === 'guest') return '';
+  return uid;
+}
+
+function setRecMode(text) {
+  const el = document.getElementById('rec-mode');
+  if (!el) return;
+  const t = (text || '').trim();
+  el.textContent = t;
+  el.hidden = !t;
+}
+
 function updateGreeting() {
   const greet = document.getElementById('user-greeting');
   if (!greet) return;
@@ -223,7 +240,7 @@ async function handleUserForm() {
   }
   form.addEventListener('submit', async (ev) => {
     ev.preventDefault();
-    const userId = (localStorage.getItem('ml_user') || '').trim();
+    const userId = effectiveUserId();
     const topN = 20;
     const genres = $('#genres').value.trim();
     const yearFromEl = document.getElementById('yearFrom');
@@ -231,16 +248,35 @@ async function handleUserForm() {
     const yearFrom = yearFromEl ? String((yearFromEl.value||'').trim()) : '';
     const yearTo = yearToEl ? String((yearToEl.value||'').trim()) : '';
     const row = $('#user-row');
-    localStorage.setItem('ml_user', userId || '');
+    // Persist selected user; keep explicit "guest" meaning no-user.
+    localStorage.setItem('ml_user', userId || 'guest');
+    setRecMode(userId ? `Personalization: ALS (user ${userId}) • loading…` : 'Personalization: Popular (guest — log in for ALS)');
     showSkeleton(row, 8);
     const params = new URLSearchParams({ topN: String(topN) });
     if (genres) params.set('genres', genres);
     if (yearFrom) params.set('year_from', yearFrom);
     if (yearTo) params.set('year_to', yearTo);
     try {
-      const data = userId
-        ? await fetchJSON(`/recommendations/user/${encodeURIComponent(userId)}?${params}`)
-        : await fetchJSON(`/popular?${params}`);
+      let data = [];
+      if (userId) {
+        const [alsData, popData] = await Promise.all([
+          fetchJSON(`/recommendations/user/${encodeURIComponent(userId)}?${params}`),
+          fetchJSON(`/popular?${params}`),
+        ]);
+        data = Array.isArray(alsData) ? alsData : [];
+        const baseline = Array.isArray(popData) ? popData : [];
+
+        if (!data.length) {
+          setRecMode(`Personalization: Popular (no ALS recs for user ${userId})`);
+          data = baseline;
+        } else {
+          const baselineIds = new Set(baseline.map((m) => String(m.movieId)));
+          const diff = data.filter((m) => !baselineIds.has(String(m.movieId))).length;
+          setRecMode(`Personalization: ALS (user ${userId}) • diff vs Popular: ${diff}/${data.length}`);
+        }
+      } else {
+        data = await fetchJSON(`/popular?${params}`);
+      }
       if (!data.length) {
         row.textContent = 'No recommendations found for this user.';
       } else {
@@ -446,6 +482,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   updateGreeting();
   applyTheme();
   applyItemLayout();
+  setRecMode(effectiveUserId() ? `Personalization: ALS (user ${effectiveUserId()})` : 'Personalization: Popular (guest — log in for ALS)');
   // Load genres FIRST before other UI
   await loadGenres();
   handleUserForm();
@@ -564,13 +601,37 @@ function showSkeleton(row, n) {
 async function loadMostClicked() {
   const row = document.getElementById('clicked-row');
   if (!row) return;
+  const userId = effectiveUserId();
+
+  if (!userId) {
+    row.innerHTML = '';
+    const d = document.createElement('div');
+    d.className = 'empty-center';
+    d.textContent = 'Guest mode: no personalized recommendations.';
+    row.appendChild(d);
+    return;
+  }
+
   showSkeleton(row, 8);
   try {
-    const items = await fetchJSON('/feedback/summary?topN=20&window_days=30&half_life_days=14&w_click=1&w_list=3&blend_baseline=0.2');
+    const items = await fetchJSON(`/recommendations/user/${encodeURIComponent(userId)}?topN=50`);
     const posters = await postersFor(items);
     row.innerHTML='';
     items.map((m) => ({...m, poster: posters[m.movieId]})).forEach((m) => card(row, m));
-  } catch { row.textContent = 'No click data yet.'; }
+    if (!items || !items.length) {
+      row.innerHTML = '';
+      const d = document.createElement('div');
+      d.className = 'empty-center';
+      d.textContent = 'No ALS recommendations found for this user. Try another user ID.';
+      row.appendChild(d);
+    }
+  } catch {
+    row.innerHTML = '';
+    const d = document.createElement('div');
+    d.className = 'empty-center';
+    d.textContent = 'Failed to load ALS recommendations.';
+    row.appendChild(d);
+  }
 }
 
 async function loadMostClickedForUser(userId) {
@@ -594,7 +655,11 @@ function showTooltip(ev, movie) {
   const bits = [];
   if (movie.year) bits.push(movie.year);
   if (movie.genres) bits.push(movie.genres);
-  if (movie.score != null) bits.push(`score ${Number(movie.score).toFixed(2)}`);
+  if (movie.score != null && Number.isFinite(Number(movie.score))) {
+    bits.push(`ALS score ${Number(movie.score).toFixed(2)} (not capped)`);
+  } else if (movie.pop_score != null && Number.isFinite(Number(movie.pop_score))) {
+    bits.push(`popular ${Number(movie.pop_score).toFixed(2)}`);
+  }
   $('.tt-sub', tooltip).textContent = bits.join(' • ');
   tooltip.hidden = false;
   const pad = 12;
@@ -670,6 +735,7 @@ if (saveSettingsBtn) {
 const authBtn = document.getElementById('auth-btn');
 const loginBtn = document.getElementById('login-btn');
 const logoutBtn = document.getElementById('logout-btn');
+const sampleUserBtn = document.getElementById('sample-user-btn');
 
 function hideAllModals() {
   $$('.modal').forEach(m => m.hidden = true);
@@ -697,10 +763,30 @@ if (loginBtn) {
       document.getElementById('current-user').textContent = userId;
       closeModal('login-modal');
       updateGreeting();
+      setRecMode(`Personalization: ALS (user ${userId})`);
+      loadMostClicked();
       renderMyList();
       refreshFavoriteButtons();
     } else {
       alert('Please enter a valid user ID');
+    }
+  });
+}
+
+if (sampleUserBtn) {
+  sampleUserBtn.addEventListener('click', async () => {
+    try {
+      const users = await fetchJSON('/users?limit=1');
+      const uid = Array.isArray(users) && users.length ? String(users[0]) : '';
+      if (!uid) {
+        alert('No users found in artifacts. Run the recommender to generate outputs/user_topn.');
+        return;
+      }
+      const input = document.getElementById('user-id-input');
+      if (input) input.value = uid;
+      document.getElementById('current-user').textContent = uid;
+    } catch {
+      alert('Failed to fetch sample users from the API.');
     }
   });
 }
@@ -712,6 +798,8 @@ if (logoutBtn) {
     document.getElementById('user-id-input').value = '';
     closeModal('login-modal');
     updateGreeting();
+    setRecMode('Personalization: Popular (guest — log in for ALS)');
+    loadMostClicked();
     renderMyList();
     refreshFavoriteButtons();
   });
