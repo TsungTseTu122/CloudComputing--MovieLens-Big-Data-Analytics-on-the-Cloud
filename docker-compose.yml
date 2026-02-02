@@ -97,7 +97,7 @@ services:
     volumes:
       - ./:/app
     environment:
-      - PRECOMPUTE_DIR=/app/outputs
+      - PRECOMPUTE_DIR=/app/outputs_32m
     command: bash -lc "pip install fastapi uvicorn[standard] numpy pandas pyarrow && uvicorn api.main:app --host 0.0.0.0 --port 8000"
     ports:
       - "8000:8000"

@@ -58,6 +58,12 @@ CloudComputing--MovieLens-Big-Data-Analytics-on-the-Cloud/
 |   |-- movies_meta/                  # Movie metadata (Parquet)
 |   |-- item_factors/                 # ALS item latent factors (Parquet)
 |
+|-- outputs_32m/                      # Full 32M precomputed artifacts (local; large)
+|   |-- user_topn/                    # Top-K recommendations per user (Parquet)
+|   |-- popularity/                   # Popular movies for cold-start (Parquet)
+|   |-- movies_meta/                  # Movie metadata (Parquet)
+|   |-- item_factors/                 # ALS item latent factors (Parquet)
+|
 |-- tests/
 |   |-- test_recommendation.py        # Unit tests for ALS pipeline
 |   |-- test_api.py                   # API endpoint tests
@@ -82,7 +88,7 @@ CloudComputing--MovieLens-Big-Data-Analytics-on-the-Cloud/
 [Spark ALS Training] --> [Recommender.ipynb]
     |
     v
-[Precomputed Artifacts] --> outputs/ (Parquet)
+[Precomputed Artifacts] --> outputs_32m/ or outputs/ (Parquet)
     |
     v
 [FastAPI Service] --> api/main.py
@@ -101,10 +107,11 @@ CloudComputing--MovieLens-Big-Data-Analytics-on-the-Cloud/
    - Notebook: `Recommender.ipynb` (interactive development)
    - CLI: `python -m src.recommendation` (batch processing)
    - Algorithm: ALS (Alternating Least Squares) collaborative filtering
-   - Output: Parquet files in `outputs/` directory
+   - Output: Parquet files in `outputs_32m/` (recommended for 32M) or `outputs/` (small/demo)
 
 3. **Serving (FastAPI)**
    - Load precomputed recommendations from Parquet
+   - Uses `PRECOMPUTE_DIR` when set; otherwise prefers `outputs_32m/` if present, and falls back to `outputs/`
    - REST API endpoints for user/item recommendations
    - Cold-start handling with popularity baseline
    - Optional TMDB integration for movie posters
@@ -307,12 +314,16 @@ spark = SparkSession.builder.master("spark://spark-master:7077")...
 
 ## Outputs and Artifacts
 
-The recommender system exports precomputed artifacts to `outputs/` for efficient serving.
+The recommender system exports precomputed artifacts for efficient serving.
+
+- Full 32M artifacts: `outputs_32m/`
+- Small/demo artifacts: `outputs/`
+- The API uses `PRECOMPUTE_DIR` when set; otherwise it prefers `outputs_32m/` if present.
 
 ### Output Directory Structure
 
 ```
-outputs/
+outputs_32m/
 |-- user_topn/                # Top-N recommendations per user
 |   |-- part-00000.parquet
 |   |-- ...

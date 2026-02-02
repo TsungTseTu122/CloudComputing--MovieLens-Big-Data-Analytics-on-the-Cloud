@@ -15,7 +15,21 @@ from fastapi.responses import RedirectResponse, Response
 from pydantic import BaseModel
 
 
-PRECOMPUTE_DIR = os.getenv("PRECOMPUTE_DIR", "outputs")
+def _resolve_precompute_dir() -> str:
+    env = os.getenv("PRECOMPUTE_DIR")
+    if env:
+        return env
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    cand_32m = os.path.join(repo_root, "outputs_32m")
+    if os.path.isdir(cand_32m):
+        return cand_32m
+    cand_default = os.path.join(repo_root, "outputs")
+    if os.path.isdir(cand_default):
+        return cand_default
+    return cand_default
+
+
+PRECOMPUTE_DIR = _resolve_precompute_dir()
 TMDB_API_KEY = os.getenv("TMDB_API_KEY")
 POSTER_CACHE_FILE = os.path.join(PRECOMPUTE_DIR, "poster_cache.json")
 
