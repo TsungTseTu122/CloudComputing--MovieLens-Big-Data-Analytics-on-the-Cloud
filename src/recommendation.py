@@ -50,6 +50,21 @@ def build_spark_session(app_name: str = "MovieLensRecommender", master: Optional
     builder = builder.config("spark.pyspark.python", python_exe)
     builder = builder.config("spark.pyspark.driver.python", python_exe)
     builder = builder.config("spark.executorEnv.PYSPARK_PYTHON", python_exe)
+
+    # Optional runtime tuning (useful for the 32M dataset in local mode)
+    # Values are passed through verbatim (e.g. "8g", "4g", "400").
+    env_to_conf = {
+        "SPARK_DRIVER_MEMORY": "spark.driver.memory",
+        "SPARK_EXECUTOR_MEMORY": "spark.executor.memory",
+        "SPARK_DRIVER_MAX_RESULT_SIZE": "spark.driver.maxResultSize",
+        "SPARK_SQL_SHUFFLE_PARTITIONS": "spark.sql.shuffle.partitions",
+        "SPARK_DEFAULT_PARALLELISM": "spark.default.parallelism",
+        "SPARK_LOCAL_DIRS": "spark.local.dir",
+    }
+    for env_key, conf_key in env_to_conf.items():
+        val = os.getenv(env_key)
+        if val:
+            builder = builder.config(conf_key, val)
     return builder.getOrCreate()
 
 

@@ -25,3 +25,7 @@ reports/*.docx
 *.parquet
 
 outputs/
+
+# Large local 32M run artifacts/logs
+outputs_32m/
+outputs_32m_train.log

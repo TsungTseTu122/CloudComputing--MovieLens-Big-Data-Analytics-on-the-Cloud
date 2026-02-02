@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 
 import numpy as np
 import pandas as pd
+import pyarrow.dataset as ds
 from fastapi import FastAPI, Query
 from fastapi.staticfiles import StaticFiles
 import requests
@@ -61,6 +62,34 @@ def _load_parquet(path: str) -> pd.DataFrame:
     return pd.DataFrame()
 
 
+def _load_user_topn() -> tuple[pd.DataFrame, ds.Dataset | None]:
+    """Load user_topn either eagerly (pandas) or lazily (pyarrow dataset).
+
+    Spark typically writes Parquet as a directory (many part files). For large
+    outputs (e.g., 32M), loading the entire dataset into pandas can exceed RAM.
+    In that case we keep a lazy Dataset and query per-request.
+
+    Tests use small single-file fixtures (user_topn.parquet), which we continue
+    to load eagerly for simplicity.
+    """
+    base = PRECOMPUTE_DIR
+    dir_path = os.path.join(base, "user_topn")
+    file_path = os.path.join(base, "user_topn.parquet")
+
+    if os.path.isdir(dir_path):
+        try:
+            return pd.DataFrame(), ds.dataset(dir_path, format="parquet")
+        except Exception:
+            # Fall back to pandas directory loading if dataset construction fails.
+            return _load_parquet("user_topn"), None
+
+    if os.path.exists(file_path):
+        return _load_parquet("user_topn"), None
+
+    # Last chance: allow pandas to attempt reading if a non-standard path exists
+    return _load_parquet("user_topn"), None
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Load data on startup
@@ -103,7 +132,9 @@ class Feedback(BaseModel):
 
 
 def load_data() -> None:
-    app.state.user_topn = _load_parquet("user_topn")
+    user_topn_df, user_topn_ds = _load_user_topn()
+    app.state.user_topn = user_topn_df
+    app.state.user_topn_ds = user_topn_ds
     app.state.popularity = _load_parquet("popularity")
     app.state.movies = _load_parquet("movies_meta")
     app.state.poster_cache = _load_poster_cache()
@@ -135,9 +166,24 @@ def recs_for_user(
     year_to: Optional[int] = None,
 ) -> List[dict]:
     df = app.state.user_topn
-    if df.empty:
+    user_ds: ds.Dataset | None = getattr(app.state, "user_topn_ds", None)
+    if user_ds is not None:
+        try:
+            table = user_ds.to_table(
+                columns=["userId", "movieId", "score", "title", "genres", "year"],
+                filter=ds.field("userId") == str(user_id),
+            )
+            out = table.to_pandas()
+        except Exception:
+            out = pd.DataFrame()
+    else:
+        if df.empty:
+            return []
+        out = df[df.userId == user_id]
+
+    if out is None or len(out) == 0:
         return []
-    out = df[df.userId == user_id]
+
     if genres:
         glist = {g.strip() for g in genres.split(",") if g.strip()}
         special = {g.lower() for g in glist}
@@ -156,6 +202,12 @@ def recs_for_user(
         out = out[out["year"].fillna(0) >= year_from]
     if year_to is not None:
         out = out[out["year"].fillna(9999) <= year_to]
+
+    # Ensure numeric sort even if parquet inferred object dtype.
+    try:
+        out["score"] = pd.to_numeric(out["score"], errors="coerce")
+    except Exception:
+        pass
     out = out.sort_values("score", ascending=False).head(topN)
     return out.to_dict(orient="records")
 
@@ -387,9 +439,32 @@ def movies_by_ids(movieIds: str) -> List[dict]:
 def list_users(limit: int = 200) -> List[str]:
     """Return a sample of user IDs present in user_topn artifacts."""
     df = app.state.user_topn
-    if df.empty or "userId" not in df.columns:
-        return []
-    users = df["userId"].dropna().astype(str).unique().tolist()
+    user_ds: ds.Dataset | None = getattr(app.state, "user_topn_ds", None)
+    if user_ds is not None:
+        seen: set[str] = set()
+        try:
+            scanner = user_ds.scanner(columns=["userId"], batch_size=64_000)
+            for batch in scanner.to_batches():
+                col = batch.column(0)
+                # Convert to Python strings; drop nulls
+                for v in col.to_pylist():
+                    if v is None:
+                        continue
+                    s = str(v)
+                    if s not in seen:
+                        seen.add(s)
+                        if len(seen) >= int(limit):
+                            break
+                if len(seen) >= int(limit):
+                    break
+        except Exception:
+            return []
+        users = list(seen)
+    else:
+        if df.empty or "userId" not in df.columns:
+            return []
+        users = df["userId"].dropna().astype(str).unique().tolist()
+
     # Sort numerically when possible, lexicographically otherwise (numeric first)
     def sort_key(u: str):
         s = u.strip()
